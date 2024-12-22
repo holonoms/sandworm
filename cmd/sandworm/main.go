@@ -13,7 +13,10 @@ import (
 )
 
 var (
-	version = "0.1.0"
+	// Default version for development/non-release builds
+	// GoReleaser overrides this for release builds with the git tag.
+	// See .goreleaser.yml
+	version = "dev"
 )
 
 type cmdCfg struct {
@@ -162,7 +165,7 @@ func parseArgs() (*cmdCfg, error) {
 	}
 
 	if showVersion {
-		fmt.Printf("Sandworm version %s\n", version)
+		fmt.Println(version)
 		os.Exit(0)
 	}
 

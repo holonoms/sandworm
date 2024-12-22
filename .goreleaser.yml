@@ -1,0 +1,45 @@
+version: 2
+
+builds:
+  - main: ./cmd/sandworm
+    binary: sandworm
+
+    # OSs to build for
+    goos:
+      - darwin
+      - linux
+
+    # CPU architectures to build for
+    goarch:
+      - amd64
+      - arm64
+
+    # Build flags
+    env:
+      - CGO_ENABLED=0
+
+    # Inject version from git tag
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+# Archive settings (for distribution)
+archives:
+  - format: tar.gz
+
+    # Template for archive names
+    # Results in names like: sandworm_1.0.0_darwin_amd64.tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+
+# Changelog settings
+changelog:
+  sort: asc
+
+  # Filters for changelog entries from git commits
+  filters:
+    exclude:
+      - "^docs:" # Exclude commits starting with "docs:"
+      - "^test:" # Exclude commits starting with "test:"

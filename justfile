@@ -14,16 +14,34 @@ lint:
 build:
 	go build -o bin/sandworm ./cmd/sandworm
 
-install version="dev":
+install:
 	#!/usr/bin/env sh
-	echo "Installing to $(go env GOPATH)/bin/sandworm..." >&2; \
-	go install -ldflags="-X main.version={{version}}" ./cmd/sandworm
-	echo "" >&2; \
-	echo "If \$GOPATH is in your \$PATH, you can now run 'sandworm'." >&2; \
-	echo "Otherwise, add the following to your shell configuration:" >&2; \
-	echo "" >&2; \
-	echo "    export GOPATH=\"\$(go env GOPATH)\"" >&2; \
-	echo "    export PATH=\"\$GOPATH/bin:\$PATH\"" >&2; \
+	# Determine OS and architecture
+	OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+	ARCH=$(uname -m)
+	if [ "$ARCH" = "x86_64" ]; then
+		ARCH="amd64"
+	elif [ "$ARCH" = "arm64" ]; then
+		ARCH="arm64"
+	fi
+
+	# Clean dist and build binary snapshot for local use
+	goreleaser build --clean --snapshot
+
+	# Assume v8.0 (x86-64-v3) since it has better performance in modern CPUs (at
+	# the cost of compatibility with older CPUs)
+	BINARY="dist/sandworm_${OS}_${ARCH}_v8.0/sandworm"
+
+	# Overzealous check; if build above succeeded, binary should exist.
+	if [ ! -f "$BINARY" ]; then
+		echo "Error: Binary not found at $BINARY" >&2
+		exit 1
+	fi
+
+	# Install to $GOPATH/bin
+	echo "Installing to $(go env GOPATH)/bin/sandworm..." >&2
+	cp "$BINARY" "$(go env GOPATH)/bin/sandworm"
+	chmod +x "$(go env GOPATH)/bin/sandworm"
 
 clean:
-	rm -rf bin/
+	rm -rf bin/ dist/
