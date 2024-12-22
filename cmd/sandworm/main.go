@@ -104,12 +104,12 @@ func runGenerate(opts *cmdOptions) (int64, error) {
 
 	p, err := processor.New(opts.directory, opts.outputFile, opts.ignoreFile)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create processor: %w", err)
+		return 0, fmt.Errorf("unable to create processor: %w", err)
 	}
 
 	size, err := p.Process()
 	if err != nil {
-		return 0, fmt.Errorf("failed to process files: %w", err)
+		return 0, fmt.Errorf("unable to process files: %w", err)
 	}
 
 	return size, nil
@@ -156,7 +156,7 @@ func runPush(opts *cmdOptions) error {
 	}
 
 	if err := client.Push(opts.outputFile, "project.txt"); err != nil {
-		return fmt.Errorf("failed to push: %w", err)
+		return fmt.Errorf("unable to push: %w", err)
 	}
 
 	fmt.Printf("Updated project file (%s)\n", util.FormatSize(size))
@@ -227,7 +227,7 @@ func newSetupCmd() *cobra.Command {
 func setupClaudeClient(force bool) (*claude.Client, error) {
 	conf, err := config.New("")
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("unable to load config: %w", err)
 	}
 
 	client := claude.New(conf.GetSection("claude"))
