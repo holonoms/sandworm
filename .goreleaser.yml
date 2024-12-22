@@ -46,3 +46,21 @@ changelog:
     exclude:
       - "^docs:" # Exclude commits starting with "docs:"
       - "^test:" # Exclude commits starting with "test:"
+
+# Homebrew formulas to update on release
+brews:
+  - name: sandworm
+    repository:
+      owner: umwelt-studio
+      name: homebrew-tap
+      token: "{{ .Env.GORELEASER_GITHUB_TOKEN }}"
+    homepage: "https://github.com/umwelt-studio/sandworm"
+    description: "Project file concatenator for Claude AI"
+    license: "MIT"
+
+    test: |
+      system "#{bin}/sandworm --help"
+
+    dependencies:
+      - name: go
+        type: build
