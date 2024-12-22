@@ -73,16 +73,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Set output file
-	if cfg.command == "generate" && cfg.outputFile == "" {
-		cfg.outputFile = "sandworm.txt"
+	if cfg.command == "generate" {
 		cfg.keepFile = true
-	} else if cfg.outputFile == "" {
+		if cfg.outputFile == "" {
+			cfg.outputFile = "sandworm.txt"
+		}
+	}
+
+	if cfg.outputFile == "" {
+		fmt.Println("Generating project file...")
 		cfg.outputFile = fmt.Sprintf(".sandworm-%d.txt", time.Now().Unix())
+	} else {
+		fmt.Printf("Generating project file '%s'...\n", cfg.outputFile)
 	}
 
 	// Process files
-	fmt.Printf("Generating project file '%s'...\n", cfg.outputFile)
 	p, err := processor.New(cfg.directory, cfg.outputFile, cfg.ignoreFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
