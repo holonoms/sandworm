@@ -1,11 +1,11 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/umwelt-studio/sandworm/internal/claude"
 	"github.com/umwelt-studio/sandworm/internal/config"
 	"github.com/umwelt-studio/sandworm/internal/processor"
@@ -19,167 +19,224 @@ var (
 	version = "dev"
 )
 
-type cmdCfg struct {
-	command    string
-	directory  string
+type cmdOptions struct {
 	outputFile string
 	ignoreFile string
 	keepFile   bool
+	directory  string
 }
 
 func main() {
-	cfg, err := parseArgs()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	if err := newRootCmd().Execute(); err != nil {
 		os.Exit(1)
 	}
+}
 
-	// Setup Claude client for push or purge commands
-	var client *claude.Client
-	if cfg.command == "purge" || cfg.command == "push" {
-		conf, err := config.New("")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to load cmdCfg: %v\n", err)
-			os.Exit(1)
-		}
+func newRootCmd() *cobra.Command {
+	opts := &cmdOptions{}
 
-		client = claude.New(conf.GetSection("claude"))
-		ok, err := client.Setup(false)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		if !ok {
-			fmt.Println("Setup did not complete; exiting.")
-			os.Exit(1)
-		}
-	}
-
-	if cfg.command == "purge" {
-		count, err := client.PurgeProjectFiles(func(filename string, current, total int) {
-			fmt.Printf("%d/%d: Deleting '%s'...\n", current, total, filename)
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if count == 0 {
-			fmt.Println("No files to delete.")
-		} else {
-			suffix := ""
-			if count > 1 {
-				suffix = "s"
+	rootCmd := &cobra.Command{
+		Use:     "sandworm [directory]",
+		Short:   "Project file concatenator",
+		Version: version,
+		// If no subcommand is run, execute the push command
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) > 0 {
+				opts.directory = args[0]
 			}
-			fmt.Printf("Done! Removed %d file%s\n", count, suffix)
-		}
-		os.Exit(0)
+			if opts.outputFile == "" {
+				opts.outputFile = fmt.Sprintf(".sandworm-%d.txt", time.Now().Unix())
+			}
+			if err := runPush(opts); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		},
 	}
 
-	if cfg.command == "generate" {
-		cfg.keepFile = true
-		if cfg.outputFile == "" {
-			cfg.outputFile = "sandworm.txt"
-		}
+	// Add global flags
+	rootCmd.PersistentFlags().StringVarP(&opts.outputFile, "output", "o", "", "Output file")
+	rootCmd.PersistentFlags().StringVar(&opts.ignoreFile, "ignore", "", "Ignore file (default: .gitignore)")
+	rootCmd.PersistentFlags().BoolVarP(&opts.keepFile, "keep", "k", false, "Keep the generated file after pushing")
+
+	// Add commands
+	rootCmd.AddCommand(
+		newGenerateCmd(opts),
+		newPushCmd(opts),
+		newPurgeCmd(),
+		newSetupCmd(),
+	)
+
+	return rootCmd
+}
+
+// MARK: Generate command
+
+func newGenerateCmd(opts *cmdOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate [directory]",
+		Short: "Generate concatenated file only",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				opts.directory = args[0]
+			}
+			// Default output for generate
+			if opts.outputFile == "" {
+				opts.outputFile = "sandworm.txt"
+			}
+			opts.keepFile = true
+
+			fmt.Printf("Generating project '%s'...\n", opts.outputFile)
+			size, err := runGenerate(opts)
+			fmt.Printf("Generated '%s' (%s)\n", opts.outputFile, util.FormatSize(size))
+			return err
+		},
 	}
 
-	if cfg.outputFile == "" {
-		fmt.Println("Generating project file...")
-		cfg.outputFile = fmt.Sprintf(".sandworm-%d.txt", time.Now().Unix())
-	} else {
-		fmt.Printf("Generating project file '%s'...\n", cfg.outputFile)
+	return cmd
+}
+
+func runGenerate(opts *cmdOptions) (int64, error) {
+	if opts.directory == "" {
+		opts.directory = "."
 	}
 
-	// Process files
-	p, err := processor.New(cfg.directory, cfg.outputFile, cfg.ignoreFile)
+	p, err := processor.New(opts.directory, opts.outputFile, opts.ignoreFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 0, fmt.Errorf("failed to create processor: %w", err)
 	}
 
 	size, err := p.Process()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 0, fmt.Errorf("failed to process files: %w", err)
 	}
 
-	if cfg.command == "push" {
-		if err := client.Push(cfg.outputFile, "project.txt"); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Updated project file (%s)\n", util.FormatSize(size))
-	} else {
-		fmt.Printf("Generated '%s' (%s)\n", cfg.outputFile, util.FormatSize(size))
-	}
-
-	// Clean up the output file unless we're keeping it
-	if !cfg.keepFile {
-		os.Remove(cfg.outputFile)
-	}
+	return size, nil
 }
 
-func parseArgs() (*cmdCfg, error) {
-	cfg := &cmdCfg{
-		command: "push", // default command
+// MARK: Push command
+
+func newPushCmd(opts *cmdOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "push [directory]",
+		Short: "Generate and push to Claude",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				opts.directory = args[0]
+			}
+			// Default output for push
+			if opts.outputFile == "" {
+				opts.outputFile = fmt.Sprintf(".sandworm-%d.txt", time.Now().Unix())
+			}
+			return runPush(opts)
+		},
 	}
 
-	// Define flags
-	flags := flag.NewFlagSet("sandworm", flag.ExitOnError)
-	flags.Usage = func() {
-		fmt.Printf("Sandworm v%s - Project file concatenator\n\n", version)
-		fmt.Println("Usage: sandworm [command] [options] [directory]")
-		fmt.Println("\nCommands:")
-		fmt.Println("    generate    Generate concatenated file only")
-		fmt.Println("    push        Generate and push to Claude (default)")
-		fmt.Println("    purge       Remove all files from Claude project")
-		fmt.Println("\nOptions:")
-		flags.PrintDefaults()
+	return cmd
+}
+
+func runPush(opts *cmdOptions) error {
+	client, err := setupClaudeClient(false)
+	if err != nil {
+		return err
 	}
 
-	flags.StringVar(&cfg.outputFile, "output", "", "Output file (defaults to temp file on push and sandworm.txt for generate)")
-	flags.StringVar(&cfg.outputFile, "o", "", "Output file (short flag)")
-	flags.StringVar(&cfg.ignoreFile, "ignore", "", "Ignore file (default: .gitignore)")
-	flags.BoolVar(&cfg.keepFile, "keep", false, "Keep the generated file after pushing (only affects push)")
-	flags.BoolVar(&cfg.keepFile, "k", false, "Keep the generated file (short flag)")
-
-	// Version flag
-	var showVersion bool
-	flags.BoolVar(&showVersion, "version", false, "Show version")
-	flags.BoolVar(&showVersion, "v", false, "Show version (short flag)")
-
-	// Parse args
-	if len(os.Args) > 1 {
-		if os.Args[1] == "generate" || os.Args[1] == "push" || os.Args[1] == "purge" {
-			cfg.command = os.Args[1]
-			err := flags.Parse(os.Args[2:])
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			err := flags.Parse(os.Args[1:])
-			if err != nil {
-				return nil, err
-			}
+	defer func() {
+		// Clean up unless keepFile is true
+		if !opts.keepFile {
+			os.Remove(opts.outputFile)
 		}
+	}()
+
+	fmt.Println("Generating project file...")
+	var size int64
+	if size, err = runGenerate(opts); err != nil {
+		return err
 	}
 
-	if showVersion {
-		fmt.Println(version)
-		os.Exit(0)
+	if err := client.Push(opts.outputFile, "project.txt"); err != nil {
+		return fmt.Errorf("failed to push: %w", err)
 	}
 
-	// Get directory argument or use current directory
-	args := flags.Args()
-	if len(args) > 0 {
-		cfg.directory = args[0]
+	fmt.Printf("Updated project file (%s)\n", util.FormatSize(size))
+
+	return nil
+}
+
+// MARK: Purge command
+
+func newPurgeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "purge",
+		Short: "Remove all files from Claude project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPurge()
+		},
+	}
+
+	return cmd
+}
+
+func runPurge() error {
+	client, err := setupClaudeClient(false)
+	if err != nil {
+		return err
+	}
+
+	count, err := client.PurgeProjectFiles(func(filename string, current, total int) {
+		fmt.Printf("%d/%d: Deleting '%s'...\n", current, total, filename)
+	})
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		fmt.Println("No files to delete.")
 	} else {
-		var err error
-		cfg.directory, err = os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current directory: %w", err)
+		suffix := ""
+		if count > 1 {
+			suffix = "s"
 		}
+		fmt.Printf("Done! Removed %d file%s\n", count, suffix)
 	}
 
-	return cfg, nil
+	return nil
+}
+
+// MARK: Setup command
+
+func newSetupCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "setup",
+		Short: "Configure Claude project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := setupClaudeClient(true)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("\nSetup complete! Run 'sandworm push' to generate and push your project file.")
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func setupClaudeClient(force bool) (*claude.Client, error) {
+	conf, err := config.New("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	client := claude.New(conf.GetSection("claude"))
+	ok, err := client.Setup(force)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("setup did not complete")
+	}
+
+	return client, nil
 }

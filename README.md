@@ -42,7 +42,7 @@ This will:
 ## Advanced usage
 
 ```
-Sandworm v0.1.0 - Project file concatenator
+Sandworm vX.Y.Z - Project file concatenator
 
 Usage: sandworm [command] [options] [directory]
 
@@ -50,6 +50,7 @@ Commands:
     generate    Generate concatenated file only
     push        Generate and push to Claude (default)
     purge       Remove all files from Claude project
+    setup       Configure Claude project
 
 Options:
   -ignore string
