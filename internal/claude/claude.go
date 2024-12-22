@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"regexp"
 	"strings"
@@ -34,17 +34,19 @@ var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
 
 // New creates a new Claude API client using the provided configuration section.
 func New(cfg *config.Section) *Client {
-	jar, _ := cookiejar.New(nil)
-
 	return &Client{
 		config: cfg,
 		httpClient: &http.Client{
-			Jar: jar,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					// Minimum TLS version required by Claude; 403's without this.
 					MinVersion: tls.VersionTLS12,
 				},
+				Dial: (&net.Dialer{
+					Timeout:   5 * time.Second,
+					KeepAlive: 5 * time.Second,
+				}).Dial,
+				TLSHandshakeTimeout: 5 * time.Second,
 			},
 		},
 	}
