@@ -146,3 +146,15 @@ just test
 # Other tasks
 just --list
 ```
+
+## Cutting a new release
+
+New releases are produced with [goreleaser](.goreleaser.yml).
+To create a new release, simply push a tag in the format `vX.Y.Z`.
+A new release will be automatically
+[created and uploaded to GitHub](./.github/workflows/release.yml).
+
+```bash
+git tag -a v0.42.0 -m "Release v0.42.0"
+git push origin v0.42.0
+```

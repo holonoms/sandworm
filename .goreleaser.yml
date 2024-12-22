@@ -1,3 +1,6 @@
+# https://goreleaser.com
+#
+# https://raw.githubusercontent.com/goreleaser/goreleaser/v2.5.0/www/docs/static/schema.json
 version: 2
 
 builds:
