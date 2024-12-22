@@ -36,7 +36,8 @@ This will:
 4. Upload that file to the configured Claude project
 5. Delete the temporary file
 
-> [!NOTE] First run will prompt you to setup the tool for a specific Claude project
+> [!NOTE]
+> First run will prompt you to setup the tool for a specific Claude project
 
 ## Advanced usage
 
@@ -123,3 +124,25 @@ If a custom ignore file is provided, Sandworm will use only rules in that file.
 Otherwise, it'll follow git ignore rules (`git ls-files`) and add a few extra
 ignore rules to exclude binary files and other files that are typically checked
 in but irrelevant in the context of LLM assistance.
+
+## Development
+
+```bash
+# Setup tooling
+asdf install (or something else that supports .tool-versions)
+
+# Run project from sources
+just run --help
+
+# Build binary & run it
+just build && bin/sandworm
+
+# Run all checks
+just lint
+
+# Run tests
+just test
+
+# Other tasks
+just --list
+```
