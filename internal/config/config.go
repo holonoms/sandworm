@@ -92,7 +92,7 @@ func (c *Config) load() error {
 // The resulting file uses standard file permissions (0644) to ensure
 // it's readable by the user and group but protected from other users.
 func (c *Config) Save() error {
-	data, err := json.Marshal(c.data)
+	data, err := json.MarshalIndent(c.data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
