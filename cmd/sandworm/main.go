@@ -41,7 +41,7 @@ func newRootCmd() *cobra.Command {
 		Version:      version,
 		SilenceUsage: true,
 		// If no subcommand is run, execute the push command
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			if len(args) > 0 {
 				opts.directory = args[0]
 			}
@@ -77,7 +77,7 @@ func newGenerateCmd(opts *cmdOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate [directory]",
 		Short: "Generate concatenated file only",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				opts.directory = args[0]
 			}
@@ -121,7 +121,7 @@ func newPushCmd(opts *cmdOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push [directory]",
 		Short: "Generate and push to Claude",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				opts.directory = args[0]
 			}
@@ -170,7 +170,7 @@ func newPurgeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "purge",
 		Short: "Remove all files from Claude project",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runPurge()
 		},
 	}
@@ -210,7 +210,7 @@ func newSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Configure Claude project",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			_, err := setupClaudeClient(true)
 			if err != nil {
 				return err
