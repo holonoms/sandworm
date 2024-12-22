@@ -310,7 +310,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 func (c *Client) listOrganizations() ([]organization, error) {
 	data, err := c.makeRequest(http.MethodGet, "/organizations", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listOrganizations: %w", err)
 	}
 
 	var orgs []organization
@@ -323,7 +323,7 @@ func (c *Client) listOrganizations() ([]organization, error) {
 func (c *Client) listProjects() ([]project, error) {
 	data, err := c.makeRequest(http.MethodGet, fmt.Sprintf("/organizations/%s/projects", c.organizationID()), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listProjects: %w", err)
 	}
 
 	var projects []project
@@ -340,7 +340,7 @@ func (c *Client) listDocuments() ([]document, error) {
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listDocuments: %w", err)
 	}
 
 	var docs []document
@@ -356,7 +356,10 @@ func (c *Client) deleteDocument(docID string) error {
 		fmt.Sprintf("/organizations/%s/projects/%s/docs/%s", c.organizationID(), c.projectID(), docID),
 		nil,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleteDocument: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) uploadDocument(fileName, content string) (*document, error) {
@@ -371,7 +374,7 @@ func (c *Client) uploadDocument(fileName, content string) (*document, error) {
 		body,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("uploadDocument: %w", err)
 	}
 
 	var doc document
