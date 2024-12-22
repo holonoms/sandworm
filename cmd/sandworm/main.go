@@ -36,9 +36,10 @@ func newRootCmd() *cobra.Command {
 	opts := &cmdOptions{}
 
 	rootCmd := &cobra.Command{
-		Use:     "sandworm [directory]",
-		Short:   "Project file concatenator",
-		Version: version,
+		Use:          "sandworm [directory]",
+		Short:        "Project file concatenator",
+		Version:      version,
+		SilenceUsage: true,
 		// If no subcommand is run, execute the push command
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) > 0 {
