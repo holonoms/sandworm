@@ -53,7 +53,7 @@ brews:
     repository:
       owner: umwelt-studio
       name: homebrew-tap
-      token: "{{ .Env.GORELEASER_GITHUB_TOKEN }}"
+      token: "{{ .Env.GITHUB_TOKEN }}"
     homepage: "https://github.com/umwelt-studio/sandworm"
     description: "Project file concatenator for Claude AI"
     license: "MIT"
