@@ -3,6 +3,7 @@ package claude
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,6 +42,12 @@ func New(cfg *config.Section) *Client {
 		config: cfg,
 		httpClient: &http.Client{
 			Jar: jar,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					// Minimum TLS version required by Claude; 403's without this.
+					MinVersion: tls.VersionTLS12,
+				},
+			},
 		},
 	}
 }
