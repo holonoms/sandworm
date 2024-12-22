@@ -24,20 +24,18 @@ const (
 // Client manages interactions with the Claude API, handling authentication,
 // project management, and document operations.
 type Client struct {
-	config       *config.Section
-	httpClient   *http.Client
-	sessionKey   string
-	organization string
-	project      string
-	documentID   string
+	config     *config.Section
+	httpClient *http.Client
 }
 
 // Required configuration keys for the client to function
 var requiredKeys = []string{"session_key", "org", "project"}
+var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
 
 // New creates a new Claude API client using the provided configuration section.
 func New(cfg *config.Section) *Client {
 	jar, _ := cookiejar.New(nil)
+
 	return &Client{
 		config: cfg,
 		httpClient: &http.Client{
@@ -50,6 +48,22 @@ func New(cfg *config.Section) *Client {
 			},
 		},
 	}
+}
+
+func (c *Client) documentID() string {
+	return c.config.Get("doc_id")
+}
+
+func (c *Client) projectID() string {
+	return c.config.Get("project")
+}
+
+func (c *Client) organizationID() string {
+	return c.config.Get("org")
+}
+
+func (c *Client) sessionKey() string {
+	return c.config.Get("session_key")
 }
 
 // MARK: Interface
@@ -73,10 +87,9 @@ func (c *Client) Setup(force bool) (bool, error) {
 			return false, err
 		}
 	}
-	c.sessionKey = c.config.Get("session_key")
 
 	// Handle organization selection
-	if force || c.config.Get("org") == "" {
+	if force || c.organizationID() == "" {
 		orgs, err := c.listOrganizations()
 		if err != nil {
 			return false, err
@@ -101,10 +114,9 @@ func (c *Client) Setup(force bool) (bool, error) {
 			return false, err
 		}
 	}
-	c.organization = c.config.Get("org")
 
 	// Handle project selection
-	if force || c.config.Get("project") == "" {
+	if force || c.projectID() == "" {
 		projects, err := c.listProjects()
 		if err != nil {
 			return false, err
@@ -129,7 +141,6 @@ func (c *Client) Setup(force bool) (bool, error) {
 			return false, err
 		}
 	}
-	c.project = c.config.Get("project")
 
 	return true, nil
 }
@@ -149,7 +160,6 @@ func (c *Client) Push(filePath, fileName string) error {
 		}
 		for _, doc := range docs {
 			if doc.FileName == fileName {
-				c.documentID = doc.ID
 				c.config.Set("doc_id", doc.ID)
 				if err := c.config.Save(); err != nil {
 					return err
@@ -160,14 +170,13 @@ func (c *Client) Push(filePath, fileName string) error {
 	}
 
 	// Delete existing document if we have one
-	if c.documentID != "" {
-		if err := c.deleteDocument(c.documentID); err != nil {
+	if c.documentID() != "" {
+		if err := c.deleteDocument(c.documentID()); err != nil {
 			// Only return error if it's not a 404
 			if !strings.Contains(err.Error(), "404") {
 				return err
 			}
 		}
-		c.documentID = ""
 		c.config.Set("doc_id", "")
 		if err := c.config.Save(); err != nil {
 			return err
@@ -185,7 +194,6 @@ func (c *Client) Push(filePath, fileName string) error {
 		return err
 	}
 
-	c.documentID = doc.ID
 	c.config.Set("doc_id", doc.ID)
 	return c.config.Save()
 }
@@ -214,7 +222,6 @@ func (c *Client) PurgeProjectFiles(progressFn func(fileName string, current, tot
 		}
 	}
 
-	c.documentID = ""
 	c.config.Set("doc_id", "")
 	if err := c.config.Save(); err != nil {
 		return len(docs), err
@@ -256,13 +263,13 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	}
 
 	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0")
-	req.Header.Set("Cookie", fmt.Sprintf("sessionKey=%s", c.sessionKey))
-
-	fmt.Printf("\n%s %s\n", method, req.URL)
-	for k, v := range req.Header {
-		fmt.Printf("%s: %s\n", k, v)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0",
+		"Cookie":       fmt.Sprintf("sessionKey=%s", c.sessionKey()),
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -286,8 +293,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	if cookie := resp.Header.Get("Set-Cookie"); cookie != "" {
 		if matches := sessionKeyRegex.FindStringSubmatch(cookie); matches != nil {
 			newKey := matches[1]
-			if newKey != c.sessionKey {
-				c.sessionKey = newKey
+			if newKey != c.sessionKey() {
 				c.config.Set("session_key", newKey)
 				_ = c.config.Save()
 			}
@@ -313,7 +319,7 @@ func (c *Client) listOrganizations() ([]organization, error) {
 }
 
 func (c *Client) listProjects() ([]project, error) {
-	data, err := c.makeRequest(http.MethodGet, fmt.Sprintf("/organizations/%s/projects", c.organization), nil)
+	data, err := c.makeRequest(http.MethodGet, fmt.Sprintf("/organizations/%s/projects", c.organizationID()), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +332,11 @@ func (c *Client) listProjects() ([]project, error) {
 }
 
 func (c *Client) listDocuments() ([]document, error) {
-	data, err := c.makeRequest(http.MethodGet, fmt.Sprintf("/organizations/%s/projects/%s/docs", c.organization, c.project), nil)
+	data, err := c.makeRequest(
+		http.MethodGet,
+		fmt.Sprintf("/organizations/%s/projects/%s/docs", c.organizationID(), c.projectID()),
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +349,11 @@ func (c *Client) listDocuments() ([]document, error) {
 }
 
 func (c *Client) deleteDocument(docID string) error {
-	_, err := c.makeRequest(http.MethodDelete, fmt.Sprintf("/organizations/%s/projects/%s/docs/%s", c.organization, c.project, docID), nil)
+	_, err := c.makeRequest(
+		http.MethodDelete,
+		fmt.Sprintf("/organizations/%s/projects/%s/docs/%s", c.organizationID(), c.projectID(), docID),
+		nil,
+	)
 	return err
 }
 
@@ -349,7 +363,11 @@ func (c *Client) uploadDocument(fileName, content string) (*document, error) {
 		"content":   content,
 	}
 
-	data, err := c.makeRequest(http.MethodPost, fmt.Sprintf("/organizations/%s/projects/%s/docs", c.organization, c.project), body)
+	data, err := c.makeRequest(
+		http.MethodPost,
+		fmt.Sprintf("/organizations/%s/projects/%s/docs", c.organizationID(), c.projectID()),
+		body,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -378,8 +396,6 @@ type document struct {
 	ID       string `json:"uuid"`
 	FileName string `json:"file_name"`
 }
-
-var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
 
 // MARK: User interaction (for setup)
 
