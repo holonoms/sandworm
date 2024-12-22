@@ -1,0 +1,3 @@
+# Ignore everything except go source files
+*
+!*.go

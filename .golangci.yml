@@ -1,0 +1,25 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - revive
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unconvert
+    - misspell
+    - gocritic
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+
+run:
+  tests: true
+
+issues:
+  max-same-issues: 0
