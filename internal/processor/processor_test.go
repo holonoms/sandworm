@@ -18,11 +18,11 @@ func TestProcessor(t *testing.T) {
 	// Helper function to create test files
 	createFile := func(path string, content string) {
 		fullPath := filepath.Join(tmpDir, path)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
 		if err != nil {
 			t.Fatalf("Failed to create directories for %s: %v", path, err)
 		}
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		if err != nil {
 			t.Fatalf("Failed to create file %s: %v", path, err)
 		}
@@ -72,7 +72,7 @@ func TestProcessor(t *testing.T) {
 	t.Run("gitignore support", func(t *testing.T) {
 		// Reset temp directory
 		os.RemoveAll(tmpDir)
-		os.MkdirAll(tmpDir, 0755)
+		_ = os.MkdirAll(tmpDir, 0o755)
 
 		// Create .gitignore
 		createFile(".gitignore", "*.log\n/tmp/")
@@ -108,7 +108,7 @@ func TestProcessor(t *testing.T) {
 	t.Run("binary file handling", func(t *testing.T) {
 		// Reset temp directory
 		os.RemoveAll(tmpDir)
-		os.MkdirAll(tmpDir, 0755)
+		_ = os.MkdirAll(tmpDir, 0o755)
 
 		// Create a binary file
 		binaryContent := []byte{0xFF, 0x00, 0xFF, 0x00}
@@ -143,7 +143,7 @@ func TestProcessor(t *testing.T) {
 	t.Run("custom ignore file", func(t *testing.T) {
 		// Reset temp directory
 		os.RemoveAll(tmpDir)
-		os.MkdirAll(tmpDir, 0755)
+		_ = os.MkdirAll(tmpDir, 0o755)
 
 		// Create custom ignore file
 		createFile("custom.ignore", "*.skip")
@@ -178,7 +178,7 @@ func TestProcessor(t *testing.T) {
 	t.Run("extra ignore patterns", func(t *testing.T) {
 		// Reset temp directory
 		os.RemoveAll(tmpDir)
-		os.MkdirAll(tmpDir, 0755)
+		_ = os.MkdirAll(tmpDir, 0o755)
 
 		// Create test files that should be ignored
 		ignoredFiles := []string{

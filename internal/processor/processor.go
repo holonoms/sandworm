@@ -19,7 +19,7 @@ const separator = "=============================================================
 
 // extraIgnores defines patterns for files that should typically be ignored
 const extraIgnores = `
-# === Non-binary files that are typically commited but irrelevant
+# === Non-binary files that are typically committed but irrelevant
 # === for LLMs assistance (e.g. logs, package lock files, etc.)
 .sandworm
 .sandwormignore

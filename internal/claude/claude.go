@@ -129,7 +129,7 @@ func (c *Client) Setup(force bool) (bool, error) {
 
 // Push uploads a file to the selected Claude project. If a file with the same
 // name exists, it's replaced.
-func (c *Client) Push(filePath string, fileName string) error {
+func (c *Client) Push(filePath, fileName string) error {
 	if err := c.validateConfig(); err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 			if newKey != c.sessionKey {
 				c.sessionKey = newKey
 				c.config.Set("session_key", newKey)
-				c.config.Save()
+				_ = c.config.Save()
 			}
 		}
 	}

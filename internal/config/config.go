@@ -100,11 +100,11 @@ func (c *Config) Save() error {
 	// Ensure the parent directory exists before attempting to write
 	// This handles cases where the config file is in a subdirectory
 	dir := filepath.Dir(c.path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	if err := os.WriteFile(c.path, data, 0644); err != nil {
+	if err := os.WriteFile(c.path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 

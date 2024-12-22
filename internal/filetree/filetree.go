@@ -84,7 +84,8 @@ func (t *FileTree) buildTree(node Node, prefix string, result *[]string) {
 	sort.Strings(files)
 
 	// Combine sorted directories and files
-	entries := append(dirs, files...)
+	entries := dirs
+	entries = append(entries, files...)
 
 	for i, name := range entries {
 		isLast := i == len(entries)-1

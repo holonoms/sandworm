@@ -59,7 +59,7 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
-		if err := os.WriteFile(configPath, []byte("invalid json"), 0644); err != nil {
+		if err := os.WriteFile(configPath, []byte("invalid json"), 0o644); err != nil {
 			t.Fatalf("Failed to write invalid config: %v", err)
 		}
 
