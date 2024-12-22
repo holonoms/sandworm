@@ -23,7 +23,7 @@ const extraIgnores = `
 # === for LLMs assistance (e.g. logs, package lock files, etc.)
 .sandworm
 .sandwormignore
-.sandworm-*.txt
+.sandworm*.txt
 .git*
 CHANGELOG*
 *LICENSE*
