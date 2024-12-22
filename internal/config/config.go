@@ -111,6 +111,12 @@ func (c *Config) Save() error {
 	return nil
 }
 
+// Has checks if a key exists in the section, returning true if it does.
+func (s *Section) Has(key string) bool {
+	_, exists := s.config.data[s.key][key]
+	return exists
+}
+
 // Get retrieves a value from the section. If the key doesn't exist,
 // it returns an empty string.
 func (s *Section) Get(key string) string {
@@ -121,6 +127,10 @@ func (s *Section) Get(key string) string {
 // until Save() is called to persist it to disk.
 func (s *Section) Set(key, value string) {
 	s.config.data[s.key][key] = value
+}
+
+func (s *Section) Delete(key string) {
+	delete(s.config.data[s.key], key)
 }
 
 // Save persists the current configuration to disk. This is a convenience

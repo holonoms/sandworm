@@ -18,7 +18,11 @@ import (
 )
 
 const (
-	baseURL = "https://api.claude.ai"
+	baseURL        = "https://api.claude.ai"
+	sessionKey     = "session_key"
+	documentID     = "document_id"
+	organizationID = "organization_id"
+	projectID      = "project_id"
 )
 
 // Client manages interactions with the Claude API, handling authentication,
@@ -29,7 +33,7 @@ type Client struct {
 }
 
 // Required configuration keys for the client to function
-var requiredKeys = []string{"session_key", "org", "project"}
+var requiredKeys = []string{sessionKey, organizationID, projectID}
 var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
 
 // New creates a new Claude API client using the provided configuration section.
@@ -52,22 +56,6 @@ func New(cfg *config.Section) *Client {
 	}
 }
 
-func (c *Client) documentID() string {
-	return c.config.Get("doc_id")
-}
-
-func (c *Client) projectID() string {
-	return c.config.Get("project")
-}
-
-func (c *Client) organizationID() string {
-	return c.config.Get("org")
-}
-
-func (c *Client) sessionKey() string {
-	return c.config.Get("session_key")
-}
-
 // MARK: Interface
 
 // Setup initializes the client configuration, prompting for required values
@@ -75,7 +63,7 @@ func (c *Client) sessionKey() string {
 // selection.
 func (c *Client) Setup(force bool) (bool, error) {
 	// Handle session key setup
-	if force || c.config.Get("session_key") == "" {
+	if force || !c.config.Has(sessionKey) {
 		fmt.Println("\nPlease go to https://claude.ai in your browser and copy your session key from the Cookie header.")
 		fmt.Println("You can find this in your browser's developer tools under Network tab.")
 		fmt.Println()
@@ -84,14 +72,14 @@ func (c *Client) Setup(force bool) (bool, error) {
 		if _, err := fmt.Scanln(&key); err != nil {
 			return false, fmt.Errorf("failed to read session key: %w", err)
 		}
-		c.config.Set("session_key", key)
+		c.config.Set(sessionKey, key)
 		if err := c.config.Save(); err != nil {
 			return false, err
 		}
 	}
 
 	// Handle organization selection
-	if force || c.organizationID() == "" {
+	if force || !c.config.Has(organizationID) {
 		orgs, err := c.listOrganizations()
 		if err != nil {
 			return false, err
@@ -111,14 +99,14 @@ func (c *Client) Setup(force bool) (bool, error) {
 			org = selectFromList(orgs)
 		}
 
-		c.config.Set("org", org.ID)
+		c.config.Set(organizationID, org.ID)
 		if err := c.config.Save(); err != nil {
 			return false, err
 		}
 	}
 
 	// Handle project selection
-	if force || c.projectID() == "" {
+	if force || !c.config.Has(projectID) {
 		projects, err := c.listProjects()
 		if err != nil {
 			return false, err
@@ -138,7 +126,7 @@ func (c *Client) Setup(force bool) (bool, error) {
 
 		fmt.Println("\nSelect a project:")
 		project := selectFromList(activeProjects)
-		c.config.Set("project", project.ID)
+		c.config.Set(projectID, project.ID)
 		if err := c.config.Save(); err != nil {
 			return false, err
 		}
@@ -155,14 +143,14 @@ func (c *Client) Push(filePath, fileName string) error {
 	}
 
 	// If no document ID is set, try to find existing document
-	if c.config.Get("doc_id") == "" {
+	if !c.config.Has(documentID) {
 		docs, err := c.listDocuments()
 		if err != nil {
 			return err
 		}
 		for _, doc := range docs {
 			if doc.FileName == fileName {
-				c.config.Set("doc_id", doc.ID)
+				c.config.Set(documentID, doc.ID)
 				if err := c.config.Save(); err != nil {
 					return err
 				}
@@ -172,14 +160,14 @@ func (c *Client) Push(filePath, fileName string) error {
 	}
 
 	// Delete existing document if we have one
-	if c.documentID() != "" {
-		if err := c.deleteDocument(c.documentID()); err != nil {
+	if c.config.Has(documentID) {
+		if err := c.deleteDocument(c.config.Get(documentID)); err != nil {
 			// Only return error if it's not a 404
 			if !strings.Contains(err.Error(), "404") {
 				return err
 			}
 		}
-		c.config.Set("doc_id", "")
+		c.config.Delete(documentID)
 		if err := c.config.Save(); err != nil {
 			return err
 		}
@@ -196,7 +184,7 @@ func (c *Client) Push(filePath, fileName string) error {
 		return err
 	}
 
-	c.config.Set("doc_id", doc.ID)
+	c.config.Set(documentID, doc.ID)
 	return c.config.Save()
 }
 
@@ -224,7 +212,7 @@ func (c *Client) PurgeProjectFiles(progressFn func(fileName string, current, tot
 		}
 	}
 
-	c.config.Set("doc_id", "")
+	c.config.Delete(documentID)
 	if err := c.config.Save(); err != nil {
 		return len(docs), err
 	}
@@ -238,7 +226,7 @@ func (c *Client) PurgeProjectFiles(progressFn func(fileName string, current, tot
 func (c *Client) validateConfig() error {
 	var missing []string
 	for _, key := range requiredKeys {
-		if c.config.Get(key) == "" {
+		if !c.config.Has(key) {
 			missing = append(missing, key)
 		}
 	}
@@ -268,7 +256,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0",
-		"Cookie":       fmt.Sprintf("sessionKey=%s", c.sessionKey()),
+		"Cookie":       fmt.Sprintf("sessionKey=%s", c.config.Get(sessionKey)),
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -295,8 +283,8 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	if cookie := resp.Header.Get("Set-Cookie"); cookie != "" {
 		if matches := sessionKeyRegex.FindStringSubmatch(cookie); matches != nil {
 			newKey := matches[1]
-			if newKey != c.sessionKey() {
-				c.config.Set("session_key", newKey)
+			if newKey != c.config.Get(sessionKey) {
+				c.config.Set(sessionKey, newKey)
 				_ = c.config.Save()
 			}
 		}
@@ -321,7 +309,11 @@ func (c *Client) listOrganizations() ([]organization, error) {
 }
 
 func (c *Client) listProjects() ([]project, error) {
-	data, err := c.makeRequest(http.MethodGet, fmt.Sprintf("/organizations/%s/projects", c.organizationID()), nil)
+	data, err := c.makeRequest(
+		http.MethodGet,
+		fmt.Sprintf("/organizations/%s/projects", c.config.Get(organizationID)),
+		nil,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("listProjects: %w", err)
 	}
@@ -336,7 +328,11 @@ func (c *Client) listProjects() ([]project, error) {
 func (c *Client) listDocuments() ([]document, error) {
 	data, err := c.makeRequest(
 		http.MethodGet,
-		fmt.Sprintf("/organizations/%s/projects/%s/docs", c.organizationID(), c.projectID()),
+		fmt.Sprintf(
+			"/organizations/%s/projects/%s/docs",
+			c.config.Get(organizationID),
+			c.config.Get(projectID),
+		),
 		nil,
 	)
 	if err != nil {
@@ -350,10 +346,15 @@ func (c *Client) listDocuments() ([]document, error) {
 	return docs, nil
 }
 
-func (c *Client) deleteDocument(docID string) error {
+func (c *Client) deleteDocument(id string) error {
 	_, err := c.makeRequest(
 		http.MethodDelete,
-		fmt.Sprintf("/organizations/%s/projects/%s/docs/%s", c.organizationID(), c.projectID(), docID),
+		fmt.Sprintf(
+			"/organizations/%s/projects/%s/docs/%s",
+			c.config.Get(organizationID),
+			c.config.Get(projectID),
+			id,
+		),
 		nil,
 	)
 	if err != nil {
@@ -370,7 +371,11 @@ func (c *Client) uploadDocument(fileName, content string) (*document, error) {
 
 	data, err := c.makeRequest(
 		http.MethodPost,
-		fmt.Sprintf("/organizations/%s/projects/%s/docs", c.organizationID(), c.projectID()),
+		fmt.Sprintf(
+			"/organizations/%s/projects/%s/docs",
+			c.config.Get(organizationID),
+			c.config.Get(projectID),
+		),
 		body,
 	)
 	if err != nil {
