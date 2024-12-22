@@ -19,7 +19,7 @@ Sandworm was developed with Sandworm 🙃
 ## Installation
 
 ```bash
-go get sandworm
+# TBD: brew install sandworm
 ```
 
 ## Basic usage
