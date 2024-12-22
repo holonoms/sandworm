@@ -7,6 +7,11 @@ build:
 run:
 	go run cmd/sandworm/main.go
 
+# Format code
+fmt:
+	go fmt ./...
+	go run golang.org/x/tools/cmd/goimports@latest -w .
+
 # Run tests
 test:
 	go test -v -race -cover ./...
