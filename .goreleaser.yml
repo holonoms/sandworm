@@ -50,17 +50,22 @@ changelog:
 # Homebrew formulas to update on release
 brews:
   - name: sandworm
+    homepage: "https://github.com/umwelt-studio/sandworm"
+    description: "Project file concatenator for Claude AI"
+    license: "MIT"
     repository:
       owner: umwelt-studio
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
-    homepage: "https://github.com/umwelt-studio/sandworm"
-    description: "Project file concatenator for Claude AI"
-    license: "MIT"
-
+    directory: Formula
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    install: |
+      bin.install "sandworm"
     test: |
-      system "#{bin}/sandworm --help"
-
+      system "#{bin}/sandworm --version"
     dependencies:
       - name: go
         type: build
