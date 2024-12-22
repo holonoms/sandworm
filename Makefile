@@ -1,9 +1,6 @@
 .PHONY: build test lint clean
 
-# Build the binary
-build:
-	go build -o bin/sandworm ./cmd/sandworm
-
+# Run the source code
 run:
 	go run cmd/sandworm/main.go
 
@@ -19,6 +16,10 @@ test:
 # Run linter
 lint:
 	golangci-lint run ./...
+
+# Build the binary
+build:
+	go build -o bin/sandworm ./cmd/sandworm
 
 # Clean build artifacts
 clean:
