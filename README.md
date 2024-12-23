@@ -19,7 +19,8 @@ Sandworm was developed with Sandworm 🙃
 ## Installation
 
 ```bash
-# TBD: brew install sandworm
+brew tap umwelt-studio/tap
+brew install sandworm
 ```
 
 ## Basic usage
