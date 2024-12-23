@@ -3,6 +3,7 @@ package claude
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -256,11 +257,26 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0",
-		"Cookie":       fmt.Sprintf("sessionKey=%s", c.config.Get(sessionKey)),
+		// NB: Setting this particular Accept-Encoding because Claude will 403 when
+		// under heavy load (funny http code choice...) when the client doesn't
+		// explicitly state it accepts compressed payloads. Golang's HTTP client
+		// default behavior, setting "Accept-Encoding: gzip" also doesn't work
+		// (yet another funny Anthropic API quirk...), but this particular header
+		// value seems to always do the trick. Finding this value was a happy
+		// coincidence to discover — it's what the ruby http client does by default
+		// (sandworm was originally written in ruby).
+		"Accept-Encoding": "gzip;q=1.0, identity;q=0.3",
+		"Cookie":          fmt.Sprintf("sessionKey=%s", c.config.Get(sessionKey)),
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+
+	// Debug outgoing HTTP requests as they hit the wire.
+	// dump, err := httputil.DumpRequestOut(req, true)
+	// if err == nil {
+	// 	fmt.Println(string(dump))
+	// }
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -268,10 +284,26 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+	// Read response body w/ manual decoding (necessary since we're using a custom
+	// Accept-Encoding header above).
+	var respBody []byte
+	switch resp.Header.Get("Content-Encoding") {
+	case "gzip":
+		gz, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gz.Close()
+		respBody, err = io.ReadAll(gz)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read gzip response: %w", err)
+		}
+	default:
+		// identity or no encoding
+		respBody, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
 	}
 
 	// Check for error status codes
