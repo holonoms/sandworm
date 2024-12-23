@@ -66,6 +66,3 @@ brews:
       bin.install "sandworm"
     test: |
       system "#{bin}/sandworm --version"
-    dependencies:
-      - name: go
-        type: build
