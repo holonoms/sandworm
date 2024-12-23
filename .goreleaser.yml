@@ -65,4 +65,4 @@ brews:
     install: |
       bin.install "sandworm"
     test: |
-      system "#{bin}/sandworm --version"
+      system "#{bin}/sandworm", "--version"
