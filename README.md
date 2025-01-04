@@ -1,49 +1,59 @@
 # Sandworm 🪱
 
 A simple tool that concatenates a bunch of files (think a project folder)
-into a single document, perfect for feeding to large language models.
-Sandworm preserves file structure context by:
+into a single document, perfect for feeding to large language models and
+"talk-to-your-codebase" workflows.
 
-1. Including a full directory tree at the start of the document
-2. Clearly separating each file with headers containing their full paths
-3. Respecting `.gitignore` rules to exclude unnecessary files
+It integrates with Claude Projects and automates the filesync process, which
+allows you to quickly iterate on your code with the help of Claude.
 
-Perfect for when you need to:
-
-- Upload your project context to ChatGPT, Claude, or other LLMs
-- Create a single-file snapshot of your project
-- Generate documentation that requires full codebase context
-
-Sandworm was developed with Sandworm 🙃
-
-## Installation
+## Quick start
 
 ```bash
 brew tap umwelt-studio/tap
 brew install sandworm
+brew sandworm --help
 ```
 
-## Basic usage
+## What does it do?
 
-```bash
-sandworm [directory]
-```
+Sandworm reads your project directory, combines all text files into a
+single text file, and uploads this file to a configured Claude project. This
+Allows you to chat with Claude having the most recent version of your entire
+project context.
 
-This will:
+## What is good for?
 
-1. Generate a directory tree of your project
-2. Concatenate all files (respecting `.gitignore` or custom ignore file such as `.sandwormignore`)
-3. Create a temporary `sandworm-<timestamp>.txt` in the current directory
-4. Upload that file to the configured Claude project
-5. Delete the temporary file
+The typical workflow is:
 
-> [!NOTE]
-> First run will prompt you to setup the tool for a specific Claude project
+1. Make changes to your project
+2. Run sandworm to update your Claude project
+3. Ask Claude to iterate on the new code (e.g. build new feature, refactor code)
+4. Apply Claude's suggested changes & run sandworm again
+
+Rinse and repeat. Used in this fashion, sandworm allows you to very quickly add
+new features to your software projects by leveraging Claude (or a similar LLM).
+
+## How does it work?
+
+Sandworm will initially look for a `.sandwormignore` file, falling back to a
+`.gitignore` file if not found. This ignore file (which follows `.gitignore`
+[inclusion/exclusion patterns](https://git-scm.com/docs/gitignore#_pattern_format))
+is how sandworm determines which files to combine into the output file.
+
+It then creates a project file that consists of a file & folder tree at the top,
+followed by individual file's contents.
+
+The first time you run `sandworm push` (or just `sandworm`), you'll be prompted
+to configure the Claude Project you want to sync with. Once that's done,
+subsequent runs of sandworm will take care of syncing the newly generated file
+with the Project's file. Every new Project Chat with Claude will include your
+whole project as context.
 
 ## Advanced usage
 
 ```
-Sandworm vX.Y.Z - Project file concatenator
+Sandworm v0.1.1 - Project file concatenator
 
 Usage: sandworm [command] [options] [directory]
 
@@ -89,9 +99,21 @@ Use custom ignore file:
 sandworm src/ --ignore custom-ignore.txt
 ```
 
+Keep the uploaded file for inspection:
+
+```bash
+sandworm push -k
+```
+
+Generate only, don't push to Claude Project:
+
+```bash
+sandworm generate
+```
+
 ### Output Format
 
-The generated file will have this structure:
+The generated file will have the structure:
 
 ```
 PROJECT STRUCTURE:
@@ -119,13 +141,6 @@ FILE: components/Card.tsx
 
 ...
 ```
-
-### File Filtering
-
-If a custom ignore file is provided, Sandworm will use only rules in that file.
-Otherwise, it'll follow git ignore rules (`git ls-files`) and add a few extra
-ignore rules to exclude binary files and other files that are typically checked
-in but irrelevant in the context of LLM assistance.
 
 ## Development
 
