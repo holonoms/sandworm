@@ -40,23 +40,12 @@ func newRootCmd() *cobra.Command {
 		Short:        "Project file concatenator",
 		Version:      version,
 		SilenceUsage: true,
-		// If no subcommand is run, execute the push command
-		Run: func(_ *cobra.Command, args []string) {
-			if len(args) > 0 {
-				opts.directory = args[0]
-			}
-			if opts.outputFile == "" {
-				opts.outputFile = fmt.Sprintf(".sandworm-%d.txt", time.Now().Unix())
-			}
-			if err := runPush(opts); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-		},
 		// NB: ArbitraryArgs is required to avoid interpreting the first argument
 		// as a subcommand. This is necessary for the use case `sandworm [folder]`,
 		// where folder would otherwise be interpreted as a subcommand and fail.
 		Args: cobra.ArbitraryArgs,
+		// When no subcommand is supplied, execute the push command
+		RunE: newPushCmd(opts).RunE,
 	}
 
 	// Add global flags
