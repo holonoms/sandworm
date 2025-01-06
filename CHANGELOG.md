@@ -1,5 +1,9 @@
 # Changelog
 
+## [next] - tbd
+
+- fix(CWE-770,CWE-440): bump golang.org/x/net
+
 ## [0.1.2] - 2025-01-06
 
 - fix: support target folder for default command
