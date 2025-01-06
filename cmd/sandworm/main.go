@@ -53,6 +53,10 @@ func newRootCmd() *cobra.Command {
 				os.Exit(1)
 			}
 		},
+		// NB: ArbitraryArgs is required to avoid interpreting the first argument
+		// as a subcommand. This is necessary for the use case `sandworm [folder]`,
+		// where folder would otherwise be interpreted as a subcommand and fail.
+		Args: cobra.ArbitraryArgs,
 	}
 
 	// Add global flags
