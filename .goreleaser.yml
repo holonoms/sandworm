@@ -50,11 +50,11 @@ changelog:
 # Homebrew formulas to update on release
 brews:
   - name: sandworm
-    homepage: "https://github.com/umwelt-studio/sandworm"
+    homepage: "https://github.com/holonoms/sandworm"
     description: "Project file concatenator for Claude AI"
     license: "MIT"
     repository:
-      owner: umwelt-studio
+      owner: holonoms
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
     directory: Formula
