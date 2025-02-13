@@ -21,8 +21,8 @@ type Config struct {
 	project     map[string]map[string]string
 }
 
-// Specify the keys that are shared across projects. These are stored in the global
-// configuration file and are accessible to all sandworm projects.
+// Specify shared keys. These are stored in the global configuration file and are accessible
+// to all sandworm projects.
 var globalKeys = map[string]bool{
 	"claude.session_key": true,
 }
@@ -118,7 +118,7 @@ func (c *Config) Delete(key string) error {
 	return c.saveProject()
 }
 
-// Internal helper functions
+// MARK: Internal helper functions
 
 func splitKey(key string) (section, subKey string) {
 	parts := strings.SplitN(key, ".", 2)

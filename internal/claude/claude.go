@@ -22,10 +22,10 @@ const (
 	baseURL = "https://api.claude.ai"
 
 	// Configuration keys
-	sessionKey     = "claude.session_key"     // Global
-	organizationID = "claude.organization_id" // Project-specific
-	projectID      = "claude.project_id"      // Project-specific
-	documentID     = "claude.document_id"     // Project-specific
+	sessionKey     = "claude.session_key" // Global, used across sandworm projects
+	organizationID = "claude.organization_id"
+	projectID      = "claude.project_id"
+	documentID     = "claude.document_id"
 )
 
 var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
@@ -36,7 +36,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// New creates a new Claude API client
+// New creates a new Claude API client using the provided configuration
 func New(conf *config.Config) *Client {
 	return &Client{
 		config: conf,
@@ -54,6 +54,8 @@ func New(conf *config.Config) *Client {
 		},
 	}
 }
+
+// MARK: Interface
 
 // Setup initializes the client configuration, prompting for required values
 // if they're not already set. It validates organization access and project
