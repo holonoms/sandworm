@@ -15,36 +15,34 @@ import (
 	"strings"
 	"time"
 
-	"github.com/umwelt-studio/sandworm/internal/config"
+	"github.com/holonoms/sandworm/internal/config"
 )
 
 const (
-	baseURL        = "https://api.claude.ai"
-	sessionKey     = "session_key"
-	documentID     = "document_id"
-	organizationID = "organization_id"
-	projectID      = "project_id"
+	baseURL = "https://api.claude.ai"
+
+	// Configuration keys
+	sessionKey     = "claude.session_key" // Global, used across sandworm projects
+	organizationID = "claude.organization_id"
+	projectID      = "claude.project_id"
+	documentID     = "claude.document_id"
 )
 
-// Client manages interactions with the Claude API, handling authentication,
-// project management, and document operations.
+var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
+
+// Client manages interactions with the Claude API
 type Client struct {
-	config     *config.Section
+	config     *config.Config
 	httpClient *http.Client
 }
 
-// Required configuration keys for the client to function
-var requiredKeys = []string{sessionKey, organizationID, projectID}
-var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
-
-// New creates a new Claude API client using the provided configuration section.
-func New(cfg *config.Section) *Client {
+// New creates a new Claude API client using the provided configuration
+func New(conf *config.Config) *Client {
 	return &Client{
-		config: cfg,
+		config: conf,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
-					// Minimum TLS version required by Claude; 403's without this.
 					MinVersion: tls.VersionTLS12,
 				},
 				Dial: (&net.Dialer{
@@ -73,8 +71,7 @@ func (c *Client) Setup(force bool) (bool, error) {
 		if _, err := fmt.Scanln(&key); err != nil {
 			return false, fmt.Errorf("failed to read session key: %w", err)
 		}
-		c.config.Set(sessionKey, key)
-		if err := c.config.Save(); err != nil {
+		if err := c.config.Set(sessionKey, key); err != nil {
 			return false, err
 		}
 	}
@@ -91,17 +88,9 @@ func (c *Client) Setup(force bool) (bool, error) {
 			return false, nil
 		}
 
-		var org organization
-		if len(orgs) == 1 {
-			org = orgs[0]
-			fmt.Printf("\nUsing organization: %s\n", org.Name)
-		} else {
-			fmt.Println("\nSelect an organization:")
-			org = selectFromList(orgs)
-		}
-
-		c.config.Set(organizationID, org.ID)
-		if err := c.config.Save(); err != nil {
+		fmt.Println("\nSelect an organization for this project:")
+		org := selectFromList(orgs)
+		if err := c.config.Set(organizationID, org.ID); err != nil {
 			return false, err
 		}
 	}
@@ -127,8 +116,7 @@ func (c *Client) Setup(force bool) (bool, error) {
 
 		fmt.Println("\nSelect a project:")
 		project := selectFromList(activeProjects)
-		c.config.Set(projectID, project.ID)
-		if err := c.config.Save(); err != nil {
+		if err := c.config.Set(projectID, project.ID); err != nil {
 			return false, err
 		}
 	}
@@ -151,8 +139,7 @@ func (c *Client) Push(filePath, fileName string) error {
 		}
 		for _, doc := range docs {
 			if doc.FileName == fileName {
-				c.config.Set(documentID, doc.ID)
-				if err := c.config.Save(); err != nil {
+				if err := c.config.Set(documentID, doc.ID); err != nil {
 					return err
 				}
 				break
@@ -168,8 +155,7 @@ func (c *Client) Push(filePath, fileName string) error {
 				return err
 			}
 		}
-		c.config.Delete(documentID)
-		if err := c.config.Save(); err != nil {
+		if err := c.config.Delete(documentID); err != nil {
 			return err
 		}
 	}
@@ -185,8 +171,7 @@ func (c *Client) Push(filePath, fileName string) error {
 		return err
 	}
 
-	c.config.Set(documentID, doc.ID)
-	return c.config.Save()
+	return c.config.Set(documentID, doc.ID)
 }
 
 // PurgeProjectFiles removes all files from the current project.
@@ -213,20 +198,20 @@ func (c *Client) PurgeProjectFiles(progressFn func(fileName string, current, tot
 		}
 	}
 
-	c.config.Delete(documentID)
-	if err := c.config.Save(); err != nil {
+	if err := c.config.Delete(documentID); err != nil {
 		return len(docs), err
 	}
 
 	return len(docs), nil
 }
 
-// MARK: Internal helper function
+// MARK: Internal helper functions
 
 // validateConfig ensures all required configuration values are present
 func (c *Client) validateConfig() error {
+	required := []string{sessionKey, organizationID, projectID}
 	var missing []string
-	for _, key := range requiredKeys {
+	for _, key := range required {
 		if !c.config.Has(key) {
 			missing = append(missing, key)
 		}
@@ -272,12 +257,6 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 		req.Header.Set(k, v)
 	}
 
-	// Debug outgoing HTTP requests as they hit the wire.
-	// dump, err := httputil.DumpRequestOut(req, true)
-	// if err == nil {
-	// 	fmt.Println(string(dump))
-	// }
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
@@ -316,8 +295,9 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 		if matches := sessionKeyRegex.FindStringSubmatch(cookie); matches != nil {
 			newKey := matches[1]
 			if newKey != c.config.Get(sessionKey) {
-				c.config.Set(sessionKey, newKey)
-				_ = c.config.Save()
+				if err := c.config.Set(sessionKey, newKey); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

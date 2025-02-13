@@ -1,4 +1,4 @@
-module github.com/umwelt-studio/sandworm
+module github.com/holonoms/sandworm
 
 go 1.23.4
 

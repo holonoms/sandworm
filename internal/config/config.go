@@ -8,133 +8,194 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
-// Config manages persistent settings in a JSON configuration file. It provides
-// section-based organization of settings where each section is a top-level key
-// in a JSON object. This allows logical grouping of related settings while
-// maintaining a simple, flat storage structure.
+// Config manages application configuration, automatically storing values in either
+// global or project-specific locations based on the key.
 type Config struct {
-	path string
-	data map[string]map[string]string
+	globalPath  string
+	projectPath string
+	global      map[string]map[string]string
+	project     map[string]map[string]string
 }
 
-// Section provides access to a specific configuration section. Each section
-// is a collection of key-value pairs under a common namespace (the section name).
-// This allows for organizing related settings together and avoiding key collisions.
-type Section struct {
-	config *Config
-	key    string
+// Specify shared keys. These are stored in the global configuration file and are accessible
+// to all sandworm projects.
+var globalKeys = map[string]bool{
+	"claude.session_key": true,
 }
 
-// New creates a new Config instance. If no path is provided (empty string),
-// it defaults to ".sandworm" in the current directory. The function will
-// attempt to load existing configuration from the specified path but won't
-// fail if the file doesn't exist - this allows for gradual configuration
-// building where settings are added as needed.
-//
-// The function will return an error only if the configuration file exists
-// but cannot be read or contains invalid JSON.
-func New(path string) (*Config, error) {
-	if path == "" {
-		path = ".sandworm"
+// New creates a new Config instance. If projectPath is empty, only global config
+// is used. Global config is stored in ~/.config/sandworm/config.json, while
+// project config is stored in .sandworm in the project directory.
+func New(projectPath string) (*Config, error) {
+	globalPath, err := getGlobalConfigPath()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine global config path: %w", err)
 	}
 
 	config := &Config{
-		path: path,
-		data: make(map[string]map[string]string),
+		globalPath:  filepath.Join(globalPath, "config.json"),
+		projectPath: filepath.Join(projectPath, ".sandworm"),
+		global:      make(map[string]map[string]string),
+		project:     make(map[string]map[string]string),
 	}
 
-	if err := config.load(); err != nil {
-		// We don't treat a missing configuration file as an error because
-		// it's a normal scenario when first running the application or when
-		// a user wants to start with a fresh configuration. The file will
-		// be created when the first settings are saved.
-		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("failed to load config: %w", err)
+	// Load global config
+	if err := config.loadGlobal(); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	// Load project config if path provided
+	if projectPath != "" {
+		if err := config.loadProject(); err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to load project config: %w", err)
 		}
 	}
 
 	return config, nil
 }
 
-// GetSection returns a configuration section for the specified key. If the
-// section doesn't exist, it's created automatically. This allows for
-// adding new sections on demand without explicit initialization.
-//
-// Example:
-//
-//	config, _ := config.New("")
-//	claudeSection := config.GetSection("claude")
-//	claudeSection.Set("api_key", "abc123")
-func (c *Config) GetSection(key string) *Section {
-	if _, exists := c.data[key]; !exists {
-		c.data[key] = make(map[string]string)
+// Has checks if a configuration key exists
+func (c *Config) Has(key string) bool {
+	section, subKey := splitKey(key)
+	if globalKeys[key] {
+		sectionData, exists := c.global[section]
+		if !exists {
+			return false
+		}
+		_, exists = sectionData[subKey]
+		return exists
 	}
-	return &Section{config: c, key: key}
+	sectionData, exists := c.project[section]
+	if !exists {
+		return false
+	}
+	_, exists = sectionData[subKey]
+	return exists
 }
 
-// load reads and parses the configuration file. It's called automatically
-// by New() but can also be used to reload configuration from disk if needed.
-// The function expects the file to contain a valid JSON object where each
-// top-level key represents a section containing key-value pairs.
-func (c *Config) load() error {
-	data, err := os.ReadFile(c.path)
+// Get retrieves a configuration value. Returns empty string if not found.
+func (c *Config) Get(key string) string {
+	section, subKey := splitKey(key)
+	if globalKeys[key] {
+		return c.global[section][subKey]
+	}
+	return c.project[section][subKey]
+}
+
+// Set stores a configuration value and persists it to the appropriate location
+func (c *Config) Set(key, value string) error {
+	section, subKey := splitKey(key)
+	if globalKeys[key] {
+		if _, exists := c.global[section]; !exists {
+			c.global[section] = make(map[string]string)
+		}
+		c.global[section][subKey] = value
+		return c.saveGlobal()
+	}
+	if _, exists := c.project[section]; !exists {
+		c.project[section] = make(map[string]string)
+	}
+	c.project[section][subKey] = value
+	return c.saveProject()
+}
+
+// Delete removes a configuration value
+func (c *Config) Delete(key string) error {
+	section, subKey := splitKey(key)
+	if globalKeys[key] {
+		if sectionData, exists := c.global[section]; exists {
+			delete(sectionData, subKey)
+		}
+		return c.saveGlobal()
+	}
+	if sectionData, exists := c.project[section]; exists {
+		delete(sectionData, subKey)
+	}
+	return c.saveProject()
+}
+
+// MARK: Internal helper functions
+
+func splitKey(key string) (section, subKey string) {
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) != 2 {
+		return "", key
+	}
+	return parts[0], parts[1]
+}
+
+func (c *Config) loadGlobal() error {
+	return c.load(c.globalPath, c.global)
+}
+
+func (c *Config) loadProject() error {
+	return c.load(c.projectPath, c.project)
+}
+
+func (c *Config) load(path string, data map[string]map[string]string) error {
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-
-	return json.Unmarshal(data, &c.data)
+	return json.Unmarshal(content, &data)
 }
 
-// Save writes the current configuration state to disk in JSON format.
-// It ensures the target directory exists and creates it if necessary.
-// The resulting file uses standard file permissions (0644) to ensure
-// it's readable by the user and group but protected from other users.
-func (c *Config) Save() error {
-	data, err := json.MarshalIndent(c.data, "", "  ")
+func (c *Config) saveGlobal() error {
+	return c.save(c.globalPath, c.global)
+}
+
+func (c *Config) saveProject() error {
+	return c.save(c.projectPath, c.project)
+}
+
+func (c *Config) save(path string, data map[string]map[string]string) error {
+	content, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	// Ensure the parent directory exists before attempting to write
-	// This handles cases where the config file is in a subdirectory
-	dir := filepath.Dir(c.path)
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	if err := os.WriteFile(c.path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
 	return nil
 }
 
-// Has checks if a key exists in the section, returning true if it does.
-func (s *Section) Has(key string) bool {
-	_, exists := s.config.data[s.key][key]
-	return exists
-}
+func getGlobalConfigPath() (string, error) {
+	var configDir string
 
-// Get retrieves a value from the section. If the key doesn't exist,
-// it returns an empty string.
-func (s *Section) Get(key string) string {
-	return s.config.data[s.key][key]
-}
+	switch runtime.GOOS {
+	case "darwin", "linux", "freebsd", "openbsd", "netbsd":
+		// Check XDG_CONFIG_HOME first
+		if xdgHome := os.Getenv("XDG_CONFIG_HOME"); xdgHome != "" {
+			configDir = xdgHome
+		} else {
+			// Fall back to ~/.config
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("failed to get home directory: %w", err)
+			}
+			configDir = filepath.Join(home, ".config")
+		}
 
-// Set stores a value in the section. The change is only held in memory
-// until Save() is called to persist it to disk.
-func (s *Section) Set(key, value string) {
-	s.config.data[s.key][key] = value
-}
+	case "windows":
+		configDir = os.Getenv("APPDATA")
+		if configDir == "" {
+			return "", fmt.Errorf("APPDATA environment variable not set")
+		}
 
-func (s *Section) Delete(key string) {
-	delete(s.config.data[s.key], key)
-}
+	default:
+		return "", fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+	}
 
-// Save persists the current configuration to disk. This is a convenience
-// method that calls Save() on the underlying Config instance.
-func (s *Section) Save() error {
-	return s.config.Save()
+	return filepath.Join(configDir, "sandworm"), nil
 }
