@@ -129,19 +129,19 @@ func splitKey(key string) (section, subKey string) {
 }
 
 func (c *Config) loadGlobal() error {
-	return c.load(c.globalPath, &c.global)
+	return c.load(c.globalPath, c.global)
 }
 
 func (c *Config) loadProject() error {
-	return c.load(c.projectPath, &c.project)
+	return c.load(c.projectPath, c.project)
 }
 
-func (c *Config) load(path string, data *map[string]map[string]string) error {
+func (c *Config) load(path string, data map[string]map[string]string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(content, data)
+	return json.Unmarshal(content, &data)
 }
 
 func (c *Config) saveGlobal() error {
