@@ -27,9 +27,9 @@ project context.
 The typical workflow is:
 
 1. Make changes to your project
-2. Run sandworm to update your Claude project
+2. Run `sandworm` to update your Claude project
 3. Ask Claude to iterate on the new code (e.g. build new feature, refactor code)
-4. Apply Claude's suggested changes & run sandworm again
+4. Apply Claude's suggested changes & run `sandworm` again
 
 Rinse and repeat. Used in this fashion, sandworm allows you to very quickly add
 new features to your software projects by leveraging Claude (or a similar LLM).
@@ -50,32 +50,33 @@ subsequent runs of sandworm will take care of syncing the newly generated file
 with the Project's file. Every new Project Chat with Claude will include your
 whole project as context.
 
-## Advanced usage
+## Advanced topics
+
+### Usage
 
 ```
-Sandworm v0.1.1 - Project file concatenator
+Project file concatenator
 
-Usage: sandworm [command] [options] [directory]
+Usage:
+  sandworm [directory] [flags]
+  sandworm [command]
 
-Commands:
-    generate    Generate concatenated file only
-    push        Generate and push to Claude (default)
-    purge       Remove all files from Claude project
-    setup       Configure Claude project
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  generate    Generate concatenated file only
+  help        Help about any command
+  purge       Remove all files from Claude project
+  push        Generate and push to Claude
+  setup       Configure Claude project
 
-Options:
-  -ignore string
-        Ignore file (default: .gitignore)
-  -k    Keep the generated file (short flag)
-  -keep
-        Keep the generated file after pushing (only affects push)
-  -o string
-        Output file (short flag)
-  -output string
-        Output file (defaults to temp file on push and sandworm.txt for generate)
-  -v    Show version (short flag)
-  -version
-        Show version
+Flags:
+  -h, --help            help for sandworm
+      --ignore string   Ignore file (default: .gitignore)
+  -k, --keep            Keep the generated file after pushing
+  -o, --output string   Output file
+  -v, --version         version for sandworm
+
+Use "sandworm [command] --help" for more information about a command.
 ```
 
 ### Examples
@@ -111,6 +112,17 @@ Generate only, don't push to Claude Project:
 sandworm generate
 ```
 
+### Configuration
+
+Sandworm maintains configuration in two places:
+
+- A global configuration file at `~/.config/sandworm/config.json`
+- A local configuration file at the root of your project, `.sandworm`
+
+The first is used for global configuration, like your Claude session key. The
+latter is project-specific, and stores your Claude organization ID, project ID,
+and the document ID for the file that holds your condensed project.
+
 ### Output Format
 
 The generated file will have the structure:
@@ -144,9 +156,15 @@ FILE: components/Card.tsx
 
 ## Development
 
+We recommend installing both [mise](https://mise.jdx.dev/) (or an equivalent
+version manager) and [just](https://github.com/casey/just) for a smooth
+development experience. The linting command also requires
+[golangci-lint](https://golangci-lint.run/) to be installed, although that one
+runs as part of our CI on Github.
+
 ```bash
 # Setup tooling
-asdf install (or something else that supports .tool-versions)
+mise install (or something else that supports .tool-versions)
 
 # Run project from sources
 just run --help
@@ -157,14 +175,14 @@ just build && bin/sandworm
 # Run all checks
 just lint
 
-# Run tests
+# Run the test suite
 just test
 
 # Other tasks
 just --list
 ```
 
-## Cutting a new release
+### Cutting a new release
 
 New releases are produced with [goreleaser](.goreleaser.yml).
 To create a new release, simply push a tag in the format `vX.Y.Z`.
