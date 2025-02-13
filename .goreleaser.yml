@@ -27,7 +27,7 @@ builds:
 
 # Archive settings (for distribution)
 archives:
-  - format: tar.gz
+  - formats: tar.gz
 
     # Template for archive names
     # Results in names like: sandworm_1.0.0_darwin_amd64.tar.gz
