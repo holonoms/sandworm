@@ -10,7 +10,7 @@ allows you to quickly iterate on your code with the help of Claude.
 ## Quick start
 
 ```bash
-brew tap umwelt-studio/tap
+brew tap holonoms/tap
 brew install sandworm
 brew sandworm --help
 ```

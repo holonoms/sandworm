@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/holonoms/sandworm/internal/claude"
+	"github.com/holonoms/sandworm/internal/config"
+	"github.com/holonoms/sandworm/internal/processor"
+	"github.com/holonoms/sandworm/internal/util"
 	"github.com/spf13/cobra"
-	"github.com/umwelt-studio/sandworm/internal/claude"
-	"github.com/umwelt-studio/sandworm/internal/config"
-	"github.com/umwelt-studio/sandworm/internal/processor"
-	"github.com/umwelt-studio/sandworm/internal/util"
 )
 
 var (
@@ -218,12 +218,12 @@ func newSetupCmd() *cobra.Command {
 }
 
 func setupClaudeClient(force bool) (*claude.Client, error) {
-	conf, err := config.New("")
+	conf, err := config.New(".")
 	if err != nil {
 		return nil, fmt.Errorf("unable to load config: %w", err)
 	}
 
-	client := claude.New(conf.GetSection("claude"))
+	client := claude.New(conf)
 	ok, err := client.Setup(force)
 	if err != nil {
 		return nil, err

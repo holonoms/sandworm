@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/umwelt-studio/sandworm/internal/filetree"
+	"github.com/holonoms/sandworm/internal/filetree"
 )
 
 const separator = "================================================================================"
