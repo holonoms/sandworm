@@ -4,7 +4,10 @@ package claude
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +29,7 @@ const (
 	organizationID = "claude.organization_id"
 	projectID      = "claude.project_id"
 	documentID     = "claude.document_id"
+	contentHashKey = "claude.content_hash" // Stores hash of last uploaded content
 )
 
 var sessionKeyRegex = regexp.MustCompile(`^sessionKey=([^;]+)`)
@@ -125,10 +129,29 @@ func (c *Client) Setup(force bool) (bool, error) {
 }
 
 // Push uploads a file to the selected Claude project. If a file with the same
-// name exists, it's replaced.
+// name exists, it's replaced, but only if the content has changed.
 func (c *Client) Push(filePath, fileName string) error {
 	if err := c.validateConfig(); err != nil {
 		return err
+	}
+
+	// Read new file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Calculate content hash
+	contentHash := calculateContentHash(content)
+
+	// Check if content is unchanged from last push
+	if c.config.Has(contentHashKey) && c.config.Get(contentHashKey) == contentHash {
+		// If we already have a document ID and the content is unchanged,
+		// no need to re-upload
+		if c.config.Has(documentID) {
+			fmt.Println("Content unchanged, skipping upload.")
+			return nil
+		}
 	}
 
 	// If no document ID is set, try to find existing document
@@ -160,18 +183,17 @@ func (c *Client) Push(filePath, fileName string) error {
 		}
 	}
 
-	// Read and upload new file
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
+	// Upload new document
 	doc, err := c.uploadDocument(fileName, string(content))
 	if err != nil {
 		return err
 	}
 
-	return c.config.Set(documentID, doc.ID)
+	// Store document ID and content hash
+	if err := c.config.Set(documentID, doc.ID); err != nil {
+		return err
+	}
+	return c.config.Set(contentHashKey, contentHash)
 }
 
 // PurgeProjectFiles removes all files from the current project.
@@ -198,7 +220,11 @@ func (c *Client) PurgeProjectFiles(progressFn func(fileName string, current, tot
 		}
 	}
 
+	// Clear stored document ID and content hash
 	if err := c.config.Delete(documentID); err != nil {
+		return len(docs), err
+	}
+	if err := c.config.Delete(contentHashKey); err != nil {
 		return len(docs), err
 	}
 
@@ -206,6 +232,12 @@ func (c *Client) PurgeProjectFiles(progressFn func(fileName string, current, tot
 }
 
 // MARK: Internal helper functions
+
+// calculateContentHash computes a SHA-256 hash of the content
+func calculateContentHash(content []byte) string {
+	hash := sha256.Sum256(content)
+	return hex.EncodeToString(hash[:])
+}
 
 // validateConfig ensures all required configuration values are present
 func (c *Client) validateConfig() error {
@@ -222,7 +254,7 @@ func (c *Client) validateConfig() error {
 	return nil
 }
 
-// makeRequest performs an HTTP request to the Claude API
+// makeRequest performs an HTTP request to the Claude API with timeout and retry
 func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, error) {
 	var bodyReader io.Reader
 	if body != nil {
@@ -233,6 +265,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 		bodyReader = bytes.NewReader(data)
 	}
 
+	// Set up the request
 	req, err := http.NewRequest(method, baseURL+"/api"+path, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -257,52 +290,85 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 		req.Header.Set(k, v)
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response body w/ manual decoding (necessary since we're using a custom
-	// Accept-Encoding header above).
+	// Retry logic for transient errors
+	maxRetries := 3
 	var respBody []byte
-	switch resp.Header.Get("Content-Encoding") {
-	case "gzip":
-		gz, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-		}
-		defer gz.Close()
-		respBody, err = io.ReadAll(gz)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read gzip response: %w", err)
-		}
-	default:
-		// identity or no encoding
-		respBody, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response body: %w", err)
-		}
-	}
+	var lastErr error
 
-	// Check for error status codes
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API request failed: %d - %s", resp.StatusCode, string(respBody))
-	}
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff with jitter
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			jitter := time.Duration(int64(float64(backoff) * 0.1 * (float64(2*time.Now().UnixNano()%100) / 100)))
+			time.Sleep(backoff + jitter)
+		}
 
-	// Update session key if it changed
-	if cookie := resp.Header.Get("Set-Cookie"); cookie != "" {
-		if matches := sessionKeyRegex.FindStringSubmatch(cookie); matches != nil {
-			newKey := matches[1]
-			if newKey != c.config.Get(sessionKey) {
-				if err := c.config.Set(sessionKey, newKey); err != nil {
-					return nil, err
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(req.Context(), 30*time.Second)
+		defer cancel()
+
+		// Execute request with timeout context
+		resp, err := c.httpClient.Do(req.WithContext(ctx))
+		if err != nil {
+			lastErr = fmt.Errorf("request failed (attempt %d/%d): %w", attempt+1, maxRetries, err)
+			continue // Retry on network errors
+		}
+
+		// Process the response
+		defer resp.Body.Close()
+
+		// Read response body w/ manual decoding
+		switch resp.Header.Get("Content-Encoding") {
+		case "gzip":
+			gz, err := gzip.NewReader(resp.Body)
+			if err != nil {
+				lastErr = fmt.Errorf("failed to create gzip reader: %w", err)
+				continue
+			}
+			defer gz.Close()
+			respBody, err = io.ReadAll(gz)
+			if err != nil {
+				lastErr = fmt.Errorf("failed to read gzip response: %w", err)
+				continue
+			}
+		default:
+			// identity or no encoding
+			respBody, err = io.ReadAll(resp.Body)
+			if err != nil {
+				lastErr = fmt.Errorf("failed to read response body: %w", err)
+				continue
+			}
+		}
+
+		// Check for error status codes that shouldn't be retried
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			// Only retry on 5xx errors (server errors) or 429 (rate limit)
+			if resp.StatusCode >= 500 || resp.StatusCode == 429 {
+				lastErr = fmt.Errorf("API request failed (attempt %d/%d): %d - %s",
+					attempt+1, maxRetries, resp.StatusCode, string(respBody))
+				continue
+			}
+			return nil, fmt.Errorf("API request failed: %d - %s", resp.StatusCode, string(respBody))
+		}
+
+		// Update session key if it changed
+		if cookie := resp.Header.Get("Set-Cookie"); cookie != "" {
+			if matches := sessionKeyRegex.FindStringSubmatch(cookie); matches != nil {
+				newKey := matches[1]
+				if newKey != c.config.Get(sessionKey) {
+					if err := c.config.Set(sessionKey, newKey); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
+
+		// Success! Return the response
+		return respBody, nil
 	}
 
-	return respBody, nil
+	// If we got here, all retries failed
+	return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries, lastErr)
 }
 
 // MARK: Anthropic API requests

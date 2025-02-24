@@ -148,11 +148,12 @@ func runPush(opts *cmdOptions) error {
 		return err
 	}
 
+	fmt.Println("Syncing with Claude project...")
 	if err := client.Push(opts.outputFile, "project.txt"); err != nil {
 		return fmt.Errorf("unable to push: %w", err)
 	}
 
-	fmt.Printf("Updated project file (%s)\n", util.FormatSize(size))
+	fmt.Printf("Project file synced (%s)\n", util.FormatSize(size))
 
 	return nil
 }
