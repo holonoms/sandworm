@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	baseURL = "https://api.claude.ai"
+	baseURL = "https://claude.ai"
 
 	// Configuration keys
 	sessionKey     = "claude.session_key" // Global, used across sandworm projects
