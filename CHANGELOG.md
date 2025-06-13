@@ -2,7 +2,16 @@
 
 ## [next] - tbd
 
+## [0.1.4] - 2025-06-12
+
+- fix: update host (api.claude.ai -> claude.ai)
+- chore: bump all deps
+- fix(CVE-2025-22872, CVE-2025-22870): bump golang.org/x/text
 - fix(CWE-770,CWE-440): bump golang.org/x/net
+
+## [0.1.3] - 2025-02-13
+
+- feat: global config support
 
 ## [0.1.2] - 2025-01-06
 
