@@ -14,6 +14,11 @@ lint:
 build:
 	go build -o bin/sandworm ./cmd/sandworm
 
+update-deps:
+	# Update deps to their latest compatible versions
+	go get -u ./...
+	go mod tidy
+
 install:
 	#!/usr/bin/env sh
 	# Determine OS and architecture
