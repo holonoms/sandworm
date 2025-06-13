@@ -261,7 +261,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body w/ manual decoding (necessary since we're using a custom
 	// Accept-Encoding header above).
@@ -272,7 +272,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
-		defer gz.Close()
+		defer func() { _ = gz.Close() }()
 		respBody, err = io.ReadAll(gz)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read gzip response: %w", err)

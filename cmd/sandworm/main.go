@@ -1,3 +1,4 @@
+// Package main is the main package for the sandworm CLI.
 package main
 
 import (
@@ -138,7 +139,7 @@ func runPush(opts *cmdOptions) error {
 	defer func() {
 		// Clean up unless keepFile is true
 		if !opts.keepFile {
-			os.Remove(opts.outputFile)
+			_ = os.Remove(opts.outputFile)
 		}
 	}()
 

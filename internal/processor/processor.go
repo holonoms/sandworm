@@ -172,7 +172,7 @@ func (p *Processor) Process() (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	w := bufio.NewWriter(out)
 
