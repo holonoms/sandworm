@@ -223,7 +223,7 @@ func (c *Client) validateConfig() error {
 }
 
 // makeRequest performs an HTTP request to the Claude API
-func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, error) {
+func (c *Client) makeRequest(method, path string, body any) ([]byte, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -242,6 +242,7 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0",
+		"Cookie":       fmt.Sprintf("sessionKey=%s", c.config.Get(sessionKey)),
 		// NB: Setting this particular Accept-Encoding because Claude will 403 when
 		// under heavy load (funny http code choice...) when the client doesn't
 		// explicitly state it accepts compressed payloads. Golang's HTTP client
@@ -251,7 +252,6 @@ func (c *Client) makeRequest(method, path string, body interface{}) ([]byte, err
 		// coincidence to discover — it's what the ruby http client does by default
 		// (sandworm was originally written in ruby).
 		"Accept-Encoding": "gzip;q=1.0, identity;q=0.3",
-		"Cookie":          fmt.Sprintf("sessionKey=%s", c.config.Get(sessionKey)),
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
