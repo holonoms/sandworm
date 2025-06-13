@@ -39,9 +39,9 @@ install:
 	fi
 
 	# Install to $GOPATH/bin
-	echo "Installing to $(go env GOPATH)/bin/sandworm..." >&2
-	cp "$BINARY" "$(go env GOPATH)/bin/sandworm"
-	chmod +x "$(go env GOPATH)/bin/sandworm"
+	echo "Installing to $(go env GOPATH)/bin/sandworm-dev..." >&2
+	cp "$BINARY" "$(go env GOPATH)/bin/sandworm-dev"
+	chmod +x "$(go env GOPATH)/bin/sandworm-dev"
 
 clean:
 	rm -rf bin/ dist/
