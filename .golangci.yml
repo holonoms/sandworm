@@ -1,22 +1,39 @@
+version: "2"
+
 linters:
   enable:
-    - gofmt
-    - govet
-    - revive
+    # Default linters
     - errcheck
-    - staticcheck
-    - gosimple
+    - govet
     - ineffassign
-    - unconvert
-    - misspell
+    - staticcheck
+    - unused
+    # Extra linters
+    - dupl
+    - errname
+    - errorlint
     - gocritic
+    - misspell
+    - prealloc
+    - revive
+    - whitespace
 
-linters-settings:
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+
+  exclusions:
+    # Log a warning if an exclusion rule is unused.
+    warn-unused: true
+    rules:
+      # Exclude linters from test files
+      - path: _test\.go$
+        linters:
+          # No need for `_ = errThrowingFunc()` in tests
+          - errcheck
 
 run:
   tests: true
