@@ -21,6 +21,8 @@ update-deps:
 
 install:
 	#!/usr/bin/env sh
+	set -euo pipefail
+
 	# Determine OS and architecture
 	OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 	ARCH=$(uname -m)
@@ -43,10 +45,20 @@ install:
 		exit 1
 	fi
 
-	# Install to $GOPATH/bin
-	echo "Installing to $(go env GOPATH)/bin/sandworm-dev..." >&2
-	cp "$BINARY" "$(go env GOPATH)/bin/sandworm-dev"
-	chmod +x "$(go env GOPATH)/bin/sandworm-dev"
+	# Install as sandworm-dev to $GOBIN
+	# (allows coexisting with the real sandworm binary elsewhere in PATH)
+	BIN_PATH="$(go env GOBIN)"
+	if [ -z "$BIN_PATH" ]; then
+		echo "Error: GOBIN is not set" >&2
+		exit 1
+	fi
+
+	echo "Installing to $BIN_PATH/sandworm-dev..." >&2
+	cp "$BINARY" "$BIN_PATH/sandworm-dev"
+	chmod +x "$BIN_PATH/sandworm-dev"
+
+uninstall:
+	rm -f "$(go env GOBIN)/sandworm-dev"
 
 clean:
 	rm -rf bin/ dist/
