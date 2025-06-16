@@ -287,31 +287,6 @@ func (p *Processor) writeContents(w *bufio.Writer, files []string) error {
 			return err
 		}
 	}
-	return nil
-}
-
-// writeContentWithLineNumbers writes file content with line numbers
-func (p *Processor) writeContentWithLineNumbers(w *bufio.Writer, content []byte) error {
-	lines := strings.Split(string(content), "\n")
-
-	// Calculate the number of digits needed for the largest line number
-	numLines := len(lines)
-	if numLines == 0 {
-		return nil
-	}
-
-	// Calculate padding based on the number of lines to dynamically adjust
-	// the width of the line numbers.
-	padding := int(math.Log10(float64(numLines)))
-	formatStr := fmt.Sprintf("%%%dd: %%s\n", (padding + 1))
-
-	for i, line := range lines {
-		lineNum := i + 1
-		formattedLine := fmt.Sprintf(formatStr, lineNum, line)
-		if _, err := w.WriteString(formattedLine); err != nil {
-			return err
-		}
-	}
 
 	return nil
 }
