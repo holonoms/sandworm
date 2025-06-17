@@ -54,7 +54,7 @@ whole project as context.
 
 ### Usage
 
-```
+```text
 Project file concatenator
 
 Usage:
@@ -63,6 +63,7 @@ Usage:
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
+  config      Manage project configuration
   generate    Generate concatenated file only
   help        Help about any command
   purge       Remove all files from Claude project
@@ -70,11 +71,12 @@ Available Commands:
   setup       Configure Claude project
 
 Flags:
-  -h, --help            help for sandworm
-      --ignore string   Ignore file (default: .gitignore)
-  -k, --keep            Keep the generated file after pushing
-  -o, --output string   Output file
-  -v, --version         version for sandworm
+  -h, --help                 help for sandworm
+      --ignore string        Ignore file (default: .gitignore)
+  -k, --keep                 Keep the generated file after pushing
+  -L, --follow-symlinks      Follow symbolic links when traversing directories
+  -o, --output string        Output file
+  -v, --version              version for sandworm
 
 Use "sandworm [command] --help" for more information about a command.
 ```
@@ -106,6 +108,18 @@ Keep the uploaded file for inspection:
 sandworm push -k
 ```
 
+Follow symbolic links when traversing directories:
+
+```bash
+sandworm -L
+```
+
+Configure project to always follow symbolic links:
+
+```bash
+sandworm config set processor.follow_symlinks true
+```
+
 Generate only, don't push to Claude Project:
 
 ```bash
@@ -121,13 +135,32 @@ Sandworm maintains configuration in two places:
 
 The first is used for global configuration, like your Claude session key. The
 latter is project-specific, and stores your Claude organization ID, project ID,
-and the document ID for the file that holds your condensed project.
+the document ID for the file that holds your condensed project, and other
+project-specific settings.
+
+#### Project Configuration Options
+
+- `processor.follow_symlinks`: Set to `true` to always follow symbolic links when traversing directories
+
+```bash
+# Enable following symlinks for this project
+sandworm config set processor.follow_symlinks true
+
+# Disable following symlinks for this project  
+sandworm config set processor.follow_symlinks false
+
+# Check current setting
+sandworm config get processor.follow_symlinks
+
+# List all available configuration options
+sandworm config list
+```
 
 ### Output Format
 
 The generated file will have the structure:
 
-```
+```text
 PROJECT STRUCTURE:
 ================
 
