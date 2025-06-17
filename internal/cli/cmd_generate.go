@@ -57,7 +57,17 @@ func runGenerate(opts *Options) (int64, error) {
 		}
 	}
 
-	p, err := processor.New(opts.Directory, opts.OutputFile, opts.IgnoreFile, printLineNumbers)
+	// Determine symlink following behavior: command-line flag overrides project config
+	followSymlinks := opts.followSymlinks
+	if !followSymlinks {
+		// Check project config if command-line flag is not set
+		cfg, err := config.New(opts.directory)
+		if err == nil && cfg.Has("processor.follow_symlinks") {
+			followSymlinks = cfg.Get("processor.follow_symlinks") == "true"
+		}
+	}
+
+	p, err := processor.New(opts.Directory, opts.OutputFile, opts.IgnoreFile, printLineNumbers, followSymlinks)
 	if err != nil {
 		return 0, fmt.Errorf("unable to create processor: %w", err)
 	}
