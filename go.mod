@@ -15,4 +15,5 @@ require (
 	github.com/spf13/pflag v1.0.7 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	github.com/karrick/godirwalk v1.17.0 // indirect
 )
