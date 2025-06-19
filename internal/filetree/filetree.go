@@ -32,12 +32,12 @@ func New(paths []string) *FileTree {
 	for _, path := range paths {
 		// Normalize path separators for cross-platform compatibility
 		normalizedPath := filepath.ToSlash(path)
-		
+
 		// Split path into components, automatically filtering empty parts
 		parts := strings.FieldsFunc(normalizedPath, func(r rune) bool {
 			return r == '/'
 		})
-		
+
 		if len(parts) > 0 {
 			tree.addPath(parts)
 		}
