@@ -5,7 +5,6 @@
 package filetree
 
 import (
-	"path/filepath"
 	"sort"
 	"strings"
 )
