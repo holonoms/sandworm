@@ -28,9 +28,15 @@ func New(paths []string) *FileTree {
 	tree := &FileTree{
 		root: make(Node),
 	}
-
 	for _, path := range paths {
-		tree.addPath(strings.Split(path, "/"))
+		// Split path into components, automatically filtering empty parts
+		parts := strings.FieldsFunc(path, func(r rune) bool {
+			return r == '/' || r == '\\'
+		})
+
+		if len(parts) > 0 {
+			tree.addPath(parts)
+		}
 	}
 
 	return tree
