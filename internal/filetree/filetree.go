@@ -5,7 +5,6 @@
 package filetree
 
 import (
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -30,12 +29,9 @@ func New(paths []string) *FileTree {
 		root: make(Node),
 	}
 	for _, path := range paths {
-		// Normalize path separators for cross-platform compatibility
-		normalizedPath := filepath.ToSlash(path)
-
 		// Split path into components, automatically filtering empty parts
-		parts := strings.FieldsFunc(normalizedPath, func(r rune) bool {
-			return r == '/'
+		parts := strings.FieldsFunc(path, func(r rune) bool {
+			return r == '/' || r == '\\'
 		})
 
 		if len(parts) > 0 {
