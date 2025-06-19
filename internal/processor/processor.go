@@ -212,19 +212,22 @@ func (p *Processor) collectFiles() ([]string, error) {
 		if info.IsDir() {
 			return nil
 		}
-
-		// Get relative path for ignore checking
+		// Get relative path and normalize separators for cross-platform consistency
 		relPath, err := filepath.Rel(p.rootDir, path)
 		if err != nil {
 			return fmt.Errorf("failed to get relative path: %w", err)
 		}
-
-		// Skip if file matches ignore pattern
-		if p.matcher != nil && p.matcher.Match(strings.Split(relPath, "/"), false) {
+		
+		// Normalize to forward slashes for consistent processing
+		// This ensures gitignore patterns work and output is uniform across platforms
+		normalizedPath := filepath.ToSlash(relPath)
+		// Check gitignore patterns using normalized path
+		if p.matcher != nil && p.matcher.Match(strings.Split(normalizedPath, "/"), false) {
 			return nil
 		}
 
-		files = append(files, relPath)
+		// Store normalized path for consistent cross-platform output
+		files = append(files, normalizedPath)
 		return nil
 	})
 
@@ -274,6 +277,5 @@ func (p *Processor) writeContents(w *bufio.Writer, files []string) error {
 			return err
 		}
 	}
-
 	return nil
 }
