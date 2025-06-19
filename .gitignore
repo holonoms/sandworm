@@ -22,3 +22,6 @@ go.work
 # Sandworm specific
 .sandworm
 .sandworm*.txt
+
+# VSCode
+.vscode/

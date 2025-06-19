@@ -21,10 +21,11 @@ var (
 )
 
 type cmdOptions struct {
-	outputFile string
-	ignoreFile string
-	keepFile   bool
-	directory  string
+	outputFile     string
+	ignoreFile     string
+	keepFile       bool
+	directory      string
+	followSymlinks bool
 }
 
 func main() {
@@ -53,6 +54,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&opts.outputFile, "output", "o", "", "Output file")
 	rootCmd.PersistentFlags().StringVar(&opts.ignoreFile, "ignore", "", "Ignore file (default: .gitignore)")
 	rootCmd.PersistentFlags().BoolVarP(&opts.keepFile, "keep", "k", false, "Keep the generated file after pushing")
+	rootCmd.PersistentFlags().BoolVarP(&opts.followSymlinks, "follow-symlinks", "L", false, "Follow symbolic links when traversing directories")
 
 	// Add commands
 	rootCmd.AddCommand(
@@ -60,6 +62,7 @@ func newRootCmd() *cobra.Command {
 		newPushCmd(opts),
 		newPurgeCmd(),
 		newSetupCmd(),
+		newConfigCmd(),
 	)
 
 	return rootCmd
@@ -100,6 +103,17 @@ func runGenerate(opts *cmdOptions) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("unable to create processor: %w", err)
 	}
+
+	// Determine symlink following behavior: command-line flag overrides project config
+	followSymlinks := opts.followSymlinks
+	if !followSymlinks {
+		// Check project config if command-line flag is not set
+		cfg, err := config.New(opts.directory)
+		if err == nil && cfg.Has("processor.follow_symlinks") {
+			followSymlinks = cfg.Get("processor.follow_symlinks") == "true"
+		}
+	}
+	p.SetFollowSymlinks(followSymlinks)
 
 	size, err := p.Process()
 	if err != nil {
