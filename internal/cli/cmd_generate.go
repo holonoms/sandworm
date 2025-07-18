@@ -39,25 +39,44 @@ func runGenerate(opts *Options) (int64, error) {
 		opts.Directory = "."
 	}
 
-	printLineNumbers := false
-	if opts.ShowLineNumbers != nil {
-		printLineNumbers = *opts.ShowLineNumbers
-	} else {
-		// If line-numbers flag wasn't explicitly set, load & check the project's settings.
-		cfg, err := config.New(opts.Directory)
-		if err != nil {
-			return 0, fmt.Errorf("unable to load config: %w", err)
-		}
+	// Resolve all processor options from flags/config/defaults
+	cfg, err := config.New(opts.Directory)
+	if err != nil {
+		return 0, fmt.Errorf("unable to load config: %w", err)
+	}
 
+	if opts.ShowLineNumbers == nil {
 		if cfg.Has("processor.print_line_numbers") {
 			value := cfg.Get("processor.print_line_numbers")
-			if value == "true" {
-				printLineNumbers = true
-			}
+			b := value == "true"
+			opts.ShowLineNumbers = &b
 		}
 	}
 
-	p, err := processor.New(opts.Directory, opts.OutputFile, opts.IgnoreFile, printLineNumbers)
+	if opts.FollowSymlinks == nil {
+		if cfg.Has("processor.follow_symlinks") {
+			value := cfg.Get("processor.follow_symlinks")
+			b := value == "true"
+			opts.FollowSymlinks = &b
+		}
+	}
+
+	printLineNumbers := false
+	if opts.ShowLineNumbers != nil {
+		printLineNumbers = *opts.ShowLineNumbers
+	}
+	followSymlinks := false
+	if opts.FollowSymlinks != nil {
+		followSymlinks = *opts.FollowSymlinks
+	}
+
+	// Resolve processor options from CLI options
+	procOpts := processor.SandwormOptions{
+		PrintLineNumbers: printLineNumbers,
+		FollowSymlinks:   followSymlinks,
+	}
+
+	p, err := processor.NewWithOptions(opts.Directory, opts.OutputFile, opts.IgnoreFile, procOpts)
 	if err != nil {
 		return 0, fmt.Errorf("unable to create processor: %w", err)
 	}

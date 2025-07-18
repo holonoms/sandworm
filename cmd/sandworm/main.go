@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-	if err := cli.NewRootCmd().Execute(); err != nil {
+	opts := &cli.Options{}
+	if err := cli.NewRootCmd(opts).Execute(); err != nil {
 		os.Exit(1)
 	}
 }

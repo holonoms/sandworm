@@ -4,6 +4,7 @@ go 1.24.5
 
 require (
 	github.com/go-git/go-git/v5 v5.16.2
+	github.com/karrick/godirwalk v1.17.0
 	github.com/spf13/cobra v1.9.1
 )
 
