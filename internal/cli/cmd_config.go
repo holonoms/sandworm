@@ -33,6 +33,13 @@ var configOptions = []ConfigOption{
 		Description: "The document ID to use for the Claude API",
 		Default:     "",
 	},
+	{
+		Key:         "processor.print_line_numbers",
+		Description: "Print line numbers in the output",
+		Default:     "false",
+		ValidValues: []string{"true", "false"},
+		Validator:   validateBoolOption,
+	},
 }
 
 // MARK: Sub-commands
@@ -103,9 +110,9 @@ func newConfigSetCmd() *cobra.Command {
 			return runConfigSet(args[0], args[1])
 		},
 		ValidArgsFunction: func(
-			cmd *cobra.Command,
+			_ *cobra.Command,
 			args []string,
-			toComplete string,
+			_ string,
 		) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				return configOptionsKeys(), cobra.ShellCompDirectiveNoFileComp
@@ -160,9 +167,9 @@ func newConfigGetCmd() *cobra.Command {
 			return runConfigGet(args[0])
 		},
 		ValidArgsFunction: func(
-			cmd *cobra.Command,
+			_ *cobra.Command,
 			args []string,
-			toComplete string,
+			_ string,
 		) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				return configOptionsKeys(), cobra.ShellCompDirectiveNoFileComp
@@ -205,9 +212,9 @@ func newConfigUnsetCmd() *cobra.Command {
 			return runConfigUnset(args[0])
 		},
 		ValidArgsFunction: func(
-			cmd *cobra.Command,
+			_ *cobra.Command,
 			args []string,
-			toComplete string,
+			_ string,
 		) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				return configOptionsKeys(), cobra.ShellCompDirectiveNoFileComp
@@ -246,9 +253,9 @@ func findConfigOption(key string) *ConfigOption {
 }
 
 func configOptionsKeys() []string {
-	var keys []string
-	for _, option := range configOptions {
-		keys = append(keys, option.Key)
+	keys := make([]string, len(configOptions))
+	for i, option := range configOptions {
+		keys[i] = option.Key
 	}
 	return keys
 }

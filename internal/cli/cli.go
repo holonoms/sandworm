@@ -29,10 +29,20 @@ func NewRootCmd() *cobra.Command {
 		RunE: newPushCmd(opts).RunE,
 	}
 
-	// Add global flags
 	rootCmd.PersistentFlags().StringVarP(&opts.OutputFile, "output", "o", "", "Output file")
-	rootCmd.PersistentFlags().StringVar(&opts.IgnoreFile, "ignore", "", "Ignore file (default: .gitignore)")
+	rootCmd.PersistentFlags().StringVarP(&opts.IgnoreFile, "ignore", "i", "", "Ignore file (default: .gitignore)")
 	rootCmd.PersistentFlags().BoolVarP(&opts.KeepFile, "keep", "k", false, "Keep the generated file after pushing")
+
+	var showLineNumbers bool
+	rootCmd.PersistentFlags().BoolVarP(&showLineNumbers, "line-numbers", "n", false, "Show line numbers in output (overrides config setting)")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		// Set the pointer only if the flag was explicitly provided; otherwise
+		// leave it as nil to use the project settings.
+		if cmd.Flags().Changed("line-numbers") {
+			opts.ShowLineNumbers = &showLineNumbers
+		}
+		return nil
+	}
 
 	// Add commands
 	rootCmd.AddCommand(

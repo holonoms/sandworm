@@ -7,6 +7,7 @@ package processor
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,20 +85,22 @@ go.sum
 
 // Processor handles the concatenation of project files into a single document
 type Processor struct {
-	rootDir    string
-	outputFile string
-	ignoreFile string
-	matcher    gitignore.Matcher
+	rootDir          string
+	outputFile       string
+	ignoreFile       string
+	matcher          gitignore.Matcher
+	printLineNumbers bool
 }
 
 // New creates a new Processor instance
-func New(rootDir, outputFile, ignoreFile string) (*Processor, error) {
+func New(rootDir, outputFile, ignoreFile string, printLineNumbers bool) (*Processor, error) {
 	rootDir = filepath.Clean(rootDir)
 
 	p := &Processor{
-		rootDir:    rootDir,
-		outputFile: outputFile,
-		ignoreFile: ignoreFile,
+		rootDir:          rootDir,
+		outputFile:       outputFile,
+		ignoreFile:       ignoreFile,
+		printLineNumbers: printLineNumbers,
 	}
 
 	// Initialize patterns with EXTRA_IGNORES
@@ -217,7 +220,7 @@ func (p *Processor) collectFiles() ([]string, error) {
 		if err != nil {
 			return fmt.Errorf("failed to get relative path: %w", err)
 		}
-		
+
 		// Normalize to forward slashes for consistent processing
 		// This ensures gitignore patterns work and output is uniform across platforms
 		normalizedPath := filepath.ToSlash(relPath)
@@ -263,19 +266,52 @@ func (p *Processor) writeContents(w *bufio.Writer, files []string) error {
 			return err
 		}
 
-		// Read and write file contents
+		// Read file contents
 		content, err := os.ReadFile(filepath.Join(p.rootDir, file))
 		if err != nil {
 			return fmt.Errorf("failed to read file %s: %w", file, err)
 		}
 
-		if _, err := w.Write(content); err != nil {
-			return err
+		// Write file contents with optional line numbers
+		if p.printLineNumbers {
+			if err := p.writeContentWithLineNumbers(w, content); err != nil {
+				return err
+			}
+		} else {
+			if _, err := w.Write(content); err != nil {
+				return err
+			}
 		}
 
 		if _, err := w.WriteString("\n"); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// writeContentWithLineNumbers writes file content with line numbers
+func (p *Processor) writeContentWithLineNumbers(w *bufio.Writer, content []byte) error {
+	lines := strings.Split(string(content), "\n")
+
+	// Calculate the number of digits needed for the largest line number
+	numLines := len(lines)
+	if numLines == 0 {
+		return nil
+	}
+
+	// Calculate padding based on the number of lines to dynamically adjust
+	// the width of the line numbers.
+	padding := int(math.Log10(float64(numLines)))
+	formatStr := fmt.Sprintf("%%%dd: %%s\n", (padding + 1))
+
+	for i, line := range lines {
+		lineNum := i + 1
+		formattedLine := fmt.Sprintf(formatStr, lineNum, line)
+		if _, err := w.WriteString(formattedLine); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
