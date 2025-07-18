@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -69,8 +70,8 @@ func TestGenerateCmd_OutputIgnoreKeepFlags(t *testing.T) {
 
 	outputFile := "myoutput.txt"
 	ignoreFile := "myignore.txt"
-	ignorePath := tmpDir + string(os.PathSeparator) + ignoreFile
-	if err := os.WriteFile(ignorePath, []byte("*.tmp\n"), 0644); err != nil {
+	ignorePath := filepath.Join(tmpDir, ignoreFile)
+	if err := os.WriteFile(ignorePath, []byte("*.tmp\n"), 0o644); err != nil {
 		t.Fatalf("Failed to create dummy ignore file: %v", err)
 	}
 

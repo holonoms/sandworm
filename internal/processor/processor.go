@@ -91,7 +91,7 @@ type FileInfo struct {
 }
 
 // Processor handles the concatenation of project files into a single document
-// All options are set via ProcessorOptions, which is constructed from CLI flags and config.
+// All options are set via SandwormOptions, which is constructed from CLI flags and config.
 // Symlink and line number logic are fully configurable via CLI flags or config file.
 type Processor struct {
 	rootDir              string
@@ -102,16 +102,16 @@ type Processor struct {
 	printLineNumbers bool
 }
 
-// ProcessorOptions holds the options for the Processor
+// SandwormOptions holds the options for the Processor
 // Add new options here as needed; always map from cli.Options.
 // If an option is nil in cli.Options, the value is resolved from config.
-type ProcessorOptions struct {
+type SandwormOptions struct {
 	PrintLineNumbers bool
 	FollowSymlinks   bool
 }
 
 // NewWithOptions creates a new Processor instance with all options
-func NewWithOptions(rootDir, outputFile, ignoreFile string, opts ProcessorOptions) (*Processor, error) {
+func NewWithOptions(rootDir, outputFile, ignoreFile string, opts SandwormOptions) (*Processor, error) {
 	rootDir = filepath.Clean(rootDir)
 
 	p := &Processor{
@@ -270,7 +270,7 @@ func (p *Processor) collectFiles() ([]FileInfo, error) {
 		return nil
 	}
 
-	errorCallback := func(osPathname string, err error) godirwalk.ErrorAction {
+	errorCallback := func(_ string, _ error) godirwalk.ErrorAction {
 		// Skip files/directories that can't be accessed
 		return godirwalk.SkipNode
 	}

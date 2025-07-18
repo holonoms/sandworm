@@ -71,7 +71,7 @@ func runGenerate(opts *Options) (int64, error) {
 	}
 
 	// Resolve processor options from CLI options
-	procOpts := processor.ProcessorOptions{
+	procOpts := processor.SandwormOptions{
 		PrintLineNumbers: printLineNumbers,
 		FollowSymlinks:   followSymlinks,
 	}
