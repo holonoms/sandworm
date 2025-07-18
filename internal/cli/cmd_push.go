@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPushCmd creates the push command
-func NewPushCmd(opts *Options) *cobra.Command {
+// newPushCmd creates the push command
+func newPushCmd(opts *Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push [directory]",
 		Short: "Generate and push to Claude",
