@@ -4,6 +4,7 @@ go 1.24.5
 
 require (
 	github.com/go-git/go-git/v5 v5.16.2
+	github.com/karrick/godirwalk v1.17.0
 	github.com/spf13/cobra v1.9.1
 )
 
@@ -15,5 +16,4 @@ require (
 	github.com/spf13/pflag v1.0.7 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	github.com/karrick/godirwalk v1.17.0 // indirect
 )
