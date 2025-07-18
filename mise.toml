@@ -1,3 +1,4 @@
+# NB: When updating these, make sure to also update .github/workflows/ci.yml
 [tools]
   go = "1.24.5"
   golangci-lint = "2.1.6"
