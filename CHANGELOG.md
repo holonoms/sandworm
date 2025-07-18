@@ -2,6 +2,9 @@
 
 ## [next] - tbd
 
+## [0.2.0] - 2025-07-17
+
+- feat: add line numbers to output
 - chore: bump golang to 1.24.5
 - chore: bump all deps
 
