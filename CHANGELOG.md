@@ -2,6 +2,9 @@
 
 ## [next] - tbd
 
+- chore: bump golang to 1.24.5
+- chore: bump all deps
+
 ## [0.1.4] - 2025-06-12
 
 - fix: update host (api.claude.ai -> claude.ai)
