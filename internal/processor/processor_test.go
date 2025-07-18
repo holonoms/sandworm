@@ -34,7 +34,7 @@ func TestProcessor(t *testing.T) {
 		createFile("dir1/file2.txt", "Content 2")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", false)
+		p, err := NewWithOptions(tmpDir, outputFile, "", ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -81,7 +81,7 @@ func TestProcessor(t *testing.T) {
 		createFile("keep.txt", "Should be kept")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, ".gitignore"), false)
+		p, err := NewWithOptions(tmpDir, outputFile, filepath.Join(tmpDir, ".gitignore"), ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -116,7 +116,7 @@ func TestProcessor(t *testing.T) {
 		createFile("text.txt", "Regular text file")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", false)
+		p, err := NewWithOptions(tmpDir, outputFile, "", ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -151,7 +151,7 @@ func TestProcessor(t *testing.T) {
 		createFile("keep.txt", "Should be kept")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, "custom.ignore"), false)
+		p, err := NewWithOptions(tmpDir, outputFile, filepath.Join(tmpDir, "custom.ignore"), ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -208,7 +208,7 @@ func TestProcessor(t *testing.T) {
 
 		// Process the files
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", false)
+		p, err := NewWithOptions(tmpDir, outputFile, "", ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -255,7 +255,7 @@ func TestProcessor(t *testing.T) {
 		}
 
 		outputFile := filepath.Join(tmpDir, "output_symlinks.txt")
-		p, err := New(tmpDir, outputFile, "")
+		p, err := NewWithOptions(tmpDir, outputFile, "", ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -338,7 +338,7 @@ func TestProcessor(t *testing.T) {
 		}
 
 		outputFile := filepath.Join(tmpDir, "output_cycles.txt")
-		p, err := New(tmpDir, outputFile, "")
+		p, err := NewWithOptions(tmpDir, outputFile, "", ProcessorOptions{PrintLineNumbers: false, FollowSymlinks: true})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -380,7 +380,7 @@ func TestProcessor(t *testing.T) {
 		createFile("dir1/file2.txt", "First line\nSecond line")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", true) // Enable line numbers
+		p, err := NewWithOptions(tmpDir, outputFile, "", ProcessorOptions{PrintLineNumbers: true, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}

@@ -13,9 +13,10 @@ var (
 )
 
 // NewRootCmd creates the root command with all subcommands
-func NewRootCmd() *cobra.Command {
-	opts := &Options{}
-
+func NewRootCmd(opts *Options) *cobra.Command {
+	if opts == nil {
+		opts = &Options{}
+	}
 	rootCmd := &cobra.Command{
 		Use:          "sandworm [directory]",
 		Short:        "Project file concatenator",

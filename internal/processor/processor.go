@@ -102,16 +102,24 @@ type Processor struct {
 	printLineNumbers bool
 }
 
-// New creates a new Processor instance
-func New(rootDir, outputFile, ignoreFile string, printLineNumbers bool) (*Processor, error) {
+// ProcessorOptions holds the options for the Processor
+// Add new options here as needed; always map from cli.Options.
+// If an option is nil in cli.Options, the value is resolved from config.
+type ProcessorOptions struct {
+	PrintLineNumbers bool
+	FollowSymlinks   bool
+}
+
+// NewWithOptions creates a new Processor instance with all options
+func NewWithOptions(rootDir, outputFile, ignoreFile string, opts ProcessorOptions) (*Processor, error) {
 	rootDir = filepath.Clean(rootDir)
 
 	p := &Processor{
-		rootDir:              rootDir,
-		outputFile:           outputFile,
-		ignoreFile:           ignoreFile,
-		followSymlinks: false,
-		printLineNumbers: printLineNumbers,
+		rootDir:          rootDir,
+		outputFile:       outputFile,
+		ignoreFile:       ignoreFile,
+		printLineNumbers: opts.PrintLineNumbers,
+		followSymlinks:   opts.FollowSymlinks,
 	}
 
 	// Initialize patterns with EXTRA_IGNORES

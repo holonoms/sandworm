@@ -39,35 +39,44 @@ func runGenerate(opts *Options) (int64, error) {
 		opts.Directory = "."
 	}
 
+	// Resolve all processor options from flags/config/defaults
+	cfg, err := config.New(opts.Directory)
+	if err != nil {
+		return 0, fmt.Errorf("unable to load config: %w", err)
+	}
+
+	if opts.ShowLineNumbers == nil {
+		if cfg.Has("processor.print_line_numbers") {
+			value := cfg.Get("processor.print_line_numbers")
+			b := value == "true"
+			opts.ShowLineNumbers = &b
+		}
+	}
+
+	if opts.FollowSymlinks == nil {
+		if cfg.Has("processor.follow_symlinks") {
+			value := cfg.Get("processor.follow_symlinks")
+			b := value == "true"
+			opts.FollowSymlinks = &b
+		}
+	}
+
 	printLineNumbers := false
 	if opts.ShowLineNumbers != nil {
 		printLineNumbers = *opts.ShowLineNumbers
-	} else {
-		// If line-numbers flag wasn't explicitly set, load & check the project's settings.
-		cfg, err := config.New(opts.Directory)
-		if err != nil {
-			return 0, fmt.Errorf("unable to load config: %w", err)
-		}
-
-		if cfg.Has("processor.print_line_numbers") {
-			value := cfg.Get("processor.print_line_numbers")
-			if value == "true" {
-				printLineNumbers = true
-			}
-		}
+	}
+	followSymlinks := false
+	if opts.FollowSymlinks != nil {
+		followSymlinks = *opts.FollowSymlinks
 	}
 
-	// Determine symlink following behavior: command-line flag overrides project config
-	followSymlinks := opts.followSymlinks
-	if !followSymlinks {
-		// Check project config if command-line flag is not set
-		cfg, err := config.New(opts.directory)
-		if err == nil && cfg.Has("processor.follow_symlinks") {
-			followSymlinks = cfg.Get("processor.follow_symlinks") == "true"
-		}
+	// Resolve processor options from CLI options
+	procOpts := processor.ProcessorOptions{
+		PrintLineNumbers: printLineNumbers,
+		FollowSymlinks:   followSymlinks,
 	}
 
-	p, err := processor.New(opts.Directory, opts.OutputFile, opts.IgnoreFile, printLineNumbers, followSymlinks)
+	p, err := processor.NewWithOptions(opts.Directory, opts.OutputFile, opts.IgnoreFile, procOpts)
 	if err != nil {
 		return 0, fmt.Errorf("unable to create processor: %w", err)
 	}
