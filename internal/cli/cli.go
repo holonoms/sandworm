@@ -26,7 +26,7 @@ func NewRootCmd() *cobra.Command {
 		// where folder would otherwise be interpreted as a subcommand and fail.
 		Args: cobra.ArbitraryArgs,
 		// When no subcommand is supplied, execute the push command
-		RunE: NewPushCmd(opts).RunE,
+		RunE: newPushCmd(opts).RunE,
 	}
 
 	// Add global flags
@@ -36,10 +36,11 @@ func NewRootCmd() *cobra.Command {
 
 	// Add commands
 	rootCmd.AddCommand(
-		NewGenerateCmd(opts),
-		NewPushCmd(opts),
-		NewPurgeCmd(),
-		NewSetupCmd(),
+		newGenerateCmd(opts),
+		newPushCmd(opts),
+		newPurgeCmd(),
+		newSetupCmd(),
+		newConfigCmd(),
 	)
 
 	return rootCmd

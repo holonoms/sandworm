@@ -118,6 +118,32 @@ func (c *Config) Delete(key string) error {
 	return c.saveProject()
 }
 
+// GetAllKeys returns all configuration keys as a slice of strings
+func (c *Config) GetAllKeys() []string {
+	var keys []string
+
+	// Add global keys
+	for section, sectionData := range c.global {
+		for subKey := range sectionData {
+			keys = append(keys, section+"."+subKey)
+		}
+	}
+
+	// Add project keys
+	for section, sectionData := range c.project {
+		for subKey := range sectionData {
+			keys = append(keys, section+"."+subKey)
+		}
+	}
+
+	return keys
+}
+
+// IsGlobalKey checks if a key is stored in global config
+func (c *Config) IsGlobalKey(key string) bool {
+	return globalKeys[key]
+}
+
 // MARK: Internal helper functions
 
 func splitKey(key string) (section, subKey string) {

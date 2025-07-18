@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewGenerateCmd creates the generate command
-func NewGenerateCmd(opts *Options) *cobra.Command {
+// newGenerateCmd creates the generate command
+func newGenerateCmd(opts *Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate [directory]",
 		Short: "Generate concatenated file only",
