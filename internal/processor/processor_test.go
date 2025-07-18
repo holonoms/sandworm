@@ -34,7 +34,7 @@ func TestProcessor(t *testing.T) {
 		createFile("dir1/file2.txt", "Content 2")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "")
+		p, err := New(tmpDir, outputFile, "", false)
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -81,7 +81,7 @@ func TestProcessor(t *testing.T) {
 		createFile("keep.txt", "Should be kept")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, ".gitignore"))
+		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, ".gitignore"), false)
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -116,7 +116,7 @@ func TestProcessor(t *testing.T) {
 		createFile("text.txt", "Regular text file")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "")
+		p, err := New(tmpDir, outputFile, "", false)
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -151,7 +151,7 @@ func TestProcessor(t *testing.T) {
 		createFile("keep.txt", "Should be kept")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, "custom.ignore"))
+		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, "custom.ignore"), false)
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -208,7 +208,7 @@ func TestProcessor(t *testing.T) {
 
 		// Process the files
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "")
+		p, err := New(tmpDir, outputFile, "", false)
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -237,6 +237,77 @@ func TestProcessor(t *testing.T) {
 			if !strings.Contains(output, file) {
 				t.Errorf("Missing expected file in output: %s", file)
 			}
+		}
+	})
+
+	t.Run("line numbers", func(t *testing.T) {
+		// Reset temp directory
+		os.RemoveAll(tmpDir)
+		os.MkdirAll(tmpDir, 0o755)
+
+		// Create test files with multiple lines
+		createFile("file1.txt", "Line 1\nLine 2\nLine 3")
+		createFile("dir1/file2.txt", "First line\nSecond line")
+
+		outputFile := filepath.Join(tmpDir, "output.txt")
+		p, err := New(tmpDir, outputFile, "", true) // Enable line numbers
+		if err != nil {
+			t.Fatalf("Failed to create processor: %v", err)
+		}
+
+		size, err := p.Process()
+		if err != nil {
+			t.Fatalf("Process failed: %v", err)
+		}
+
+		if size == 0 {
+			t.Error("Expected non-zero file size")
+		}
+
+		content, err := os.ReadFile(outputFile)
+		if err != nil {
+			t.Fatalf("Failed to read output file: %v", err)
+		}
+
+		output := string(content)
+
+		// Check for expected content with line numbers
+		if !strings.Contains(output, "PROJECT STRUCTURE:") {
+			t.Error("Missing project structure section")
+		}
+		if !strings.Contains(output, "FILE CONTENTS:") {
+			t.Error("Missing file contents section")
+		}
+
+		// Check that line numbers are present
+		if !strings.Contains(output, "1: Line 1") {
+			t.Error("Missing line number 1 for file1.txt")
+		}
+		if !strings.Contains(output, "2: Line 2") {
+			t.Error("Missing line number 2 for file1.txt")
+		}
+		if !strings.Contains(output, "3: Line 3") {
+			t.Error("Missing line number 3 for file1.txt")
+		}
+		if !strings.Contains(output, "1: First line") {
+			t.Error("Missing line number 1 for file2.txt")
+		}
+		if !strings.Contains(output, "2: Second line") {
+			t.Error("Missing line number 2 for file2.txt")
+		}
+
+		// Check that the line number format is correct (3 spaces + number + colon + space)
+		lines := strings.Split(output, "\n")
+		lineNumberPattern := "1: "
+		foundLineNumber := false
+		for _, line := range lines {
+			if strings.Contains(line, lineNumberPattern) {
+				foundLineNumber = true
+				break
+			}
+		}
+		if !foundLineNumber {
+			t.Error("Line number format is incorrect")
 		}
 	})
 }

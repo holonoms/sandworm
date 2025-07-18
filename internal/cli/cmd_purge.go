@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPurgeCmd creates the purge command
-func NewPurgeCmd() *cobra.Command {
+// newPurgeCmd creates the purge command
+func newPurgeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "purge",
 		Short: "Remove all files from Claude project",

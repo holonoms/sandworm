@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSetupCmd creates the setup command
-func NewSetupCmd() *cobra.Command {
+// newSetupCmd creates the setup command
+func newSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Configure Claude project",

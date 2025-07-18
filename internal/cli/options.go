@@ -26,6 +26,10 @@ type Options struct {
 	// Directory specifies the root directory to process.
 	// If empty, defaults to the current directory (".").
 	Directory string
+
+	// ShowLineNumbers determines whether to show line numbers in the output.
+	// If nil, the value from config will be used. If set, it overrides the config.
+	ShowLineNumbers *bool
 }
 
 // SetDefaults sets default values for options based on the command context
