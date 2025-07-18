@@ -75,6 +75,7 @@ Flags:
       --ignore string        Ignore file (default: .gitignore)
   -k, --keep                 Keep the generated file after pushing
   -L, --follow-symlinks      Follow symbolic links when traversing directories
+  -n, --line-numbers         Show line numbers in output (can also be set via config)
   -o, --output string        Output file
   -v, --version              version for sandworm
 
@@ -112,6 +113,12 @@ Follow symbolic links when traversing directories:
 
 ```bash
 sandworm -L
+```
+
+Show line numbers in output:
+
+```bash
+sandworm -n
 ```
 
 Configure project to always follow symbolic links:
