@@ -32,7 +32,9 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&opts.OutputFile, "output", "o", "", "Output file")
 	rootCmd.PersistentFlags().StringVarP(&opts.IgnoreFile, "ignore", "i", "", "Ignore file (default: .gitignore)")
 	rootCmd.PersistentFlags().BoolVarP(&opts.KeepFile, "keep", "k", false, "Keep the generated file after pushing")
-	rootCmd.PersistentFlags().BoolVarP(&opts.followSymlinks, "follow-symlinks", "L", false, "Follow symbolic links when traversing directories")
+
+	var followSymlinks bool
+	rootCmd.PersistentFlags().BoolVarP(&followSymlinks, "follow-symlinks", "L", false, "Follow symbolic links when traversing directories")
 
 	var showLineNumbers bool
 	rootCmd.PersistentFlags().BoolVarP(&showLineNumbers, "line-numbers", "n", false, "Show line numbers in output (overrides config setting)")
@@ -41,6 +43,9 @@ func NewRootCmd() *cobra.Command {
 		// leave it as nil to use the project settings.
 		if cmd.Flags().Changed("line-numbers") {
 			opts.ShowLineNumbers = &showLineNumbers
+		}
+		if cmd.Flags().Changed("follow-symlinks") {
+			opts.FollowSymlinks = &followSymlinks
 		}
 		return nil
 	}

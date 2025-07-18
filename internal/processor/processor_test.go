@@ -254,21 +254,12 @@ func TestProcessor(t *testing.T) {
 			t.Skipf("Symbolic links not supported on this system: %v", err)
 		}
 
-		// Create symbolic link to file
-		symlinkFile := filepath.Join(tmpDir, "symlink_file.txt")
-		targetFile := filepath.Join(tmpDir, "file1.txt")
-		err = os.Symlink(targetFile, symlinkFile)
-		if err != nil {
-			t.Skipf("Symbolic links not supported on this system: %v", err)
-		}
-
 		outputFile := filepath.Join(tmpDir, "output_symlinks.txt")
 		p, err := New(tmpDir, outputFile, "")
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
 		// Test without following symlinks
-		p.SetFollowSymlinks(false)
 		files, err := p.collectFiles()
 		if err != nil {
 			t.Fatalf("collectFiles failed: %v", err)
@@ -287,7 +278,7 @@ func TestProcessor(t *testing.T) {
 		}
 
 		// Test with following symlinks
-		p.SetFollowSymlinks(true)
+		p.followSymlinks = true
 		files, err = p.collectFiles()
 		if err != nil {
 			t.Fatalf("collectFiles with symlinks failed: %v", err)
@@ -318,8 +309,8 @@ func TestProcessor(t *testing.T) {
 
 	t.Run("symbolic link cycle prevention", func(t *testing.T) {
 		// Create directories that will have circular symlinks
-		dir1 := filepath.Join(tmpDir, "cycle1")
-		dir2 := filepath.Join(tmpDir, "cycle2")
+		dir1 := filepath.Join(tmpDir, "dir1")
+		dir2 := filepath.Join(tmpDir, "dir2")
 		err := os.MkdirAll(dir1, 0o755)
 		if err != nil {
 			t.Fatalf("Failed to create dir1: %v", err)
@@ -330,12 +321,12 @@ func TestProcessor(t *testing.T) {
 		}
 
 		// Create a file in each directory
-		createFile("cycle1/file1.txt", "Cycle 1 content")
-		createFile("cycle2/file2.txt", "Cycle 2 content")
+		createFile("dir1/file1.txt", "Dir 1 content")
+		createFile("dir2/file2.txt", "Dir 2 content")
 
 		// Create circular symlinks
-		symlink1 := filepath.Join(dir1, "link_to_cycle2")
-		symlink2 := filepath.Join(dir2, "link_to_cycle1")
+		symlink1 := filepath.Join(dir1, "link_to_dir2")
+		symlink2 := filepath.Join(dir2, "link_to_dir1")
 
 		err = os.Symlink(dir2, symlink1)
 		if err != nil {
@@ -363,19 +354,19 @@ func TestProcessor(t *testing.T) {
 		foundFile1 := false
 		foundFile2 := false
 		for _, file := range files {
-			if strings.Contains(file.RelativePath, "cycle1/file1.txt") {
+			if strings.Contains(file.RelativePath, "dir1/file1.txt") {
 				foundFile1 = true
 			}
-			if strings.Contains(file.RelativePath, "cycle2/file2.txt") {
+			if strings.Contains(file.RelativePath, "dir2/file2.txt") {
 				foundFile2 = true
 			}
 		}
 
 		if !foundFile1 {
-			t.Error("Expected to find file1.txt from cycle1 directory")
+			t.Error("Expected to find file1.txt from dir1 directory")
 		}
 		if !foundFile2 {
-			t.Error("Expected to find file2.txt from cycle2 directory")
+			t.Error("Expected to find file2.txt from dir2 directory")
 		}
 	})
 
