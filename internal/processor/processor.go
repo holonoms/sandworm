@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/holonoms/sandworm/internal/filetree"
+	"github.com/karrick/godirwalk"
 )
 
 const separator = "================================================================================"
@@ -83,24 +84,42 @@ go.sum
 *.bin
 `
 
+// FileInfo represents a file to be included in the output
+type FileInfo struct {
+	RelativePath string // The path to display in the output (relative to root)
+	AbsolutePath   string // The actual path to read the file from (resolved symlinks)
+}
+
 // Processor handles the concatenation of project files into a single document
+// All options are set via SandwormOptions, which is constructed from CLI flags and config.
+// Symlink and line number logic are fully configurable via CLI flags or config file.
 type Processor struct {
-	rootDir          string
-	outputFile       string
-	ignoreFile       string
-	matcher          gitignore.Matcher
+	rootDir              string
+	outputFile           string
+	ignoreFile           string
+	matcher              gitignore.Matcher
+	followSymlinks bool
 	printLineNumbers bool
 }
 
-// New creates a new Processor instance
-func New(rootDir, outputFile, ignoreFile string, printLineNumbers bool) (*Processor, error) {
+// SandwormOptions holds the options for the Processor
+// Add new options here as needed; always map from cli.Options.
+// If an option is nil in cli.Options, the value is resolved from config.
+type SandwormOptions struct {
+	PrintLineNumbers bool
+	FollowSymlinks   bool
+}
+
+// NewWithOptions creates a new Processor instance with all options
+func NewWithOptions(rootDir, outputFile, ignoreFile string, opts SandwormOptions) (*Processor, error) {
 	rootDir = filepath.Clean(rootDir)
 
 	p := &Processor{
 		rootDir:          rootDir,
 		outputFile:       outputFile,
 		ignoreFile:       ignoreFile,
-		printLineNumbers: printLineNumbers,
+		printLineNumbers: opts.PrintLineNumbers,
+		followSymlinks:   opts.FollowSymlinks,
 	}
 
 	// Initialize patterns with EXTRA_IGNORES
@@ -164,6 +183,11 @@ func New(rootDir, outputFile, ignoreFile string, printLineNumbers bool) (*Proces
 	return p, nil
 }
 
+// SetFollowSymlinks enables or disables following symbolic links during traversal
+func (p *Processor) SetFollowSymlinks(follow bool) {
+	p.followSymlinks = follow
+}
+
 // Process concatenates all project files into a single document
 func (p *Processor) Process() (int64, error) {
 	files, err := p.collectFiles()
@@ -203,35 +227,58 @@ func (p *Processor) Process() (int64, error) {
 }
 
 // collectFiles walks the directory tree and returns a list of files to include
-func (p *Processor) collectFiles() ([]string, error) {
-	var files []string
+func (p *Processor) collectFiles() ([]FileInfo, error) {
+	var files []FileInfo
 
-	err := filepath.Walk(p.rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Skip directories
-		if info.IsDir() {
+	callback := func(osPathname string, de *godirwalk.Dirent) error {
+		// Skip directories (but not symbolic links to files)
+		if de.IsDir() && !de.IsSymlink() {
 			return nil
 		}
+
+		// For symbolic links, check what they point to
+		if de.IsSymlink() {
+			isDir, err := de.IsDirOrSymlinkToDir()
+			if err != nil {
+				// Can't determine target, skip it
+				return nil
+			}
+			if isDir {
+				// It's a symbolic link to a directory, skip it from the file list
+				// (godirwalk will still traverse into it if FollowSymbolicLinks is true)
+				return nil
+			}
+		}
+
 		// Get relative path and normalize separators for cross-platform consistency
-		relPath, err := filepath.Rel(p.rootDir, path)
+		relPath, err := filepath.Rel(p.rootDir, osPathname)
 		if err != nil {
 			return fmt.Errorf("failed to get relative path: %w", err)
 		}
 
 		// Normalize to forward slashes for consistent processing
-		// This ensures gitignore patterns work and output is uniform across platforms
 		normalizedPath := filepath.ToSlash(relPath)
-		// Check gitignore patterns using normalized path
 		if p.matcher != nil && p.matcher.Match(strings.Split(normalizedPath, "/"), false) {
 			return nil
 		}
 
-		// Store normalized path for consistent cross-platform output
-		files = append(files, normalizedPath)
+		// Store both the display path and actual path
+		files = append(files, FileInfo{
+			RelativePath: normalizedPath,
+			AbsolutePath: osPathname,
+		})
 		return nil
+	}
+
+	errorCallback := func(_ string, _ error) godirwalk.ErrorAction {
+		// Skip files/directories that can't be accessed
+		return godirwalk.SkipNode
+	}
+
+	err := godirwalk.Walk(p.rootDir, &godirwalk.Options{
+		FollowSymbolicLinks: p.followSymlinks,
+		Callback:            callback,
+		ErrorCallback:       errorCallback,
 	})
 
 	if err != nil {
@@ -242,13 +289,19 @@ func (p *Processor) collectFiles() ([]string, error) {
 }
 
 // writeStructure writes the directory tree structure to the output.
-func (p *Processor) writeStructure(w *bufio.Writer, files []string) error {
+func (p *Processor) writeStructure(w *bufio.Writer, files []FileInfo) error {
 	_, err := w.WriteString("PROJECT STRUCTURE:\n==================\n\n")
 	if err != nil {
 		return err
 	}
 
-	tree := filetree.Build(files, "")
+	// Extract just the relative paths for the tree structure
+	paths := make([]string, len(files))
+	for i, file := range files {
+		paths[i] = file.RelativePath
+	}
+
+	tree := filetree.Build(paths, "")
 	_, err = w.WriteString(tree)
 	if err != nil {
 		return err
@@ -259,17 +312,17 @@ func (p *Processor) writeStructure(w *bufio.Writer, files []string) error {
 }
 
 // writeContents writes the contents of each file to the output.
-func (p *Processor) writeContents(w *bufio.Writer, files []string) error {
+func (p *Processor) writeContents(w *bufio.Writer, files []FileInfo) error {
 	for _, file := range files {
-		// Write file header
-		if _, err := fmt.Fprintf(w, "%s\nFILE: %s\n%s\n", separator, file, separator); err != nil {
+		// Write file header using the relative path for display
+		if _, err := fmt.Fprintf(w, "%s\nFILE: %s\n%s\n", separator, file.RelativePath, separator); err != nil {
 			return err
 		}
 
-		// Read file contents
-		content, err := os.ReadFile(filepath.Join(p.rootDir, file))
+		// Read file contents from the actual path (handles symlinks automatically)
+		content, err := os.ReadFile(file.AbsolutePath)
 		if err != nil {
-			return fmt.Errorf("failed to read file %s: %w", file, err)
+			return fmt.Errorf("failed to read file %s: %w", file.RelativePath, err)
 		}
 
 		// Write file contents with optional line numbers
@@ -287,6 +340,7 @@ func (p *Processor) writeContents(w *bufio.Writer, files []string) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

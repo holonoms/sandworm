@@ -34,7 +34,7 @@ func TestProcessor(t *testing.T) {
 		createFile("dir1/file2.txt", "Content 2")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", false)
+		p, err := NewWithOptions(tmpDir, outputFile, "", SandwormOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -81,7 +81,7 @@ func TestProcessor(t *testing.T) {
 		createFile("keep.txt", "Should be kept")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, ".gitignore"), false)
+		p, err := NewWithOptions(tmpDir, outputFile, filepath.Join(tmpDir, ".gitignore"), SandwormOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -116,7 +116,7 @@ func TestProcessor(t *testing.T) {
 		createFile("text.txt", "Regular text file")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", false)
+		p, err := NewWithOptions(tmpDir, outputFile, "", SandwormOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -151,7 +151,7 @@ func TestProcessor(t *testing.T) {
 		createFile("keep.txt", "Should be kept")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, filepath.Join(tmpDir, "custom.ignore"), false)
+		p, err := NewWithOptions(tmpDir, outputFile, filepath.Join(tmpDir, "custom.ignore"), SandwormOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -208,7 +208,7 @@ func TestProcessor(t *testing.T) {
 
 		// Process the files
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", false)
+		p, err := NewWithOptions(tmpDir, outputFile, "", SandwormOptions{PrintLineNumbers: false, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}
@@ -240,6 +240,136 @@ func TestProcessor(t *testing.T) {
 		}
 	})
 
+	t.Run("symbolic link following", func(t *testing.T) {
+		// Create test files
+		createFile("file1.txt", "Content 1")
+		createFile("dir1/file2.txt", "Content 2")
+		createFile("target/file3.txt", "Content 3")
+
+		// Create symbolic link to directory (if supported by OS)
+		symlinkDir := filepath.Join(tmpDir, "symlink_dir")
+		targetDir := filepath.Join(tmpDir, "target")
+		err := os.Symlink(targetDir, symlinkDir)
+		if err != nil {
+			t.Skipf("Symbolic links not supported on this system: %v", err)
+		}
+
+		outputFile := filepath.Join(tmpDir, "output_symlinks.txt")
+		p, err := NewWithOptions(tmpDir, outputFile, "", SandwormOptions{PrintLineNumbers: false, FollowSymlinks: false})
+		if err != nil {
+			t.Fatalf("Failed to create processor: %v", err)
+		}
+		// Test without following symlinks
+		files, err := p.collectFiles()
+		if err != nil {
+			t.Fatalf("collectFiles failed: %v", err)
+		}
+
+		// Should not include symlinked content
+		foundSymlinkedContent := false
+		for _, file := range files {
+			if strings.Contains(file.RelativePath, "symlink_dir/file3.txt") {
+				foundSymlinkedContent = true
+				break
+			}
+		}
+		if foundSymlinkedContent {
+			t.Error("Expected symlinked directory content to be excluded when not following symlinks")
+		}
+
+		// Test with following symlinks
+		p.followSymlinks = true
+		files, err = p.collectFiles()
+		if err != nil {
+			t.Fatalf("collectFiles with symlinks failed: %v", err)
+		}
+
+		// Should include symlinked content
+		foundSymlinkedContent = false
+		for _, file := range files {
+			if strings.Contains(file.RelativePath, "symlink_dir/file3.txt") {
+				foundSymlinkedContent = true
+				break
+			}
+		}
+		if !foundSymlinkedContent {
+			t.Error("Expected symlinked directory content to be included when following symlinks")
+		}
+
+		// Process the files
+		size, err := p.Process()
+		if err != nil {
+			t.Fatalf("Process with symlinks failed: %v", err)
+		}
+
+		if size == 0 {
+			t.Error("Expected non-zero file size with symlinks")
+		}
+	})
+
+	t.Run("symbolic link cycle prevention", func(t *testing.T) {
+		// Create directories that will have circular symlinks
+		dir1 := filepath.Join(tmpDir, "dir1")
+		dir2 := filepath.Join(tmpDir, "dir2")
+		err := os.MkdirAll(dir1, 0o755)
+		if err != nil {
+			t.Fatalf("Failed to create dir1: %v", err)
+		}
+		err = os.MkdirAll(dir2, 0o755)
+		if err != nil {
+			t.Fatalf("Failed to create dir2: %v", err)
+		}
+
+		// Create a file in each directory
+		createFile("dir1/file1.txt", "Dir 1 content")
+		createFile("dir2/file2.txt", "Dir 2 content")
+
+		// Create circular symlinks
+		symlink1 := filepath.Join(dir1, "link_to_dir2")
+		symlink2 := filepath.Join(dir2, "link_to_dir1")
+
+		err = os.Symlink(dir2, symlink1)
+		if err != nil {
+			t.Skipf("Symbolic links not supported on this system: %v", err)
+		}
+		err = os.Symlink(dir1, symlink2)
+		if err != nil {
+			t.Skipf("Symbolic links not supported on this system: %v", err)
+		}
+
+		outputFile := filepath.Join(tmpDir, "output_cycles.txt")
+		p, err := NewWithOptions(tmpDir, outputFile, "", SandwormOptions{PrintLineNumbers: false, FollowSymlinks: true})
+		if err != nil {
+			t.Fatalf("Failed to create processor: %v", err)
+		}
+
+		p.SetFollowSymlinks(true)
+
+		// This should not hang or crash due to infinite recursion
+		files, err := p.collectFiles()
+		if err != nil {
+			t.Fatalf("collectFiles with cycles failed: %v", err)
+		}
+		// Should include files from both directories but handle cycles gracefully
+		foundFile1 := false
+		foundFile2 := false
+		for _, file := range files {
+			if strings.Contains(file.RelativePath, "dir1/file1.txt") {
+				foundFile1 = true
+			}
+			if strings.Contains(file.RelativePath, "dir2/file2.txt") {
+				foundFile2 = true
+			}
+		}
+
+		if !foundFile1 {
+			t.Error("Expected to find file1.txt from dir1 directory")
+		}
+		if !foundFile2 {
+			t.Error("Expected to find file2.txt from dir2 directory")
+		}
+	})
+
 	t.Run("line numbers", func(t *testing.T) {
 		// Reset temp directory
 		os.RemoveAll(tmpDir)
@@ -250,7 +380,7 @@ func TestProcessor(t *testing.T) {
 		createFile("dir1/file2.txt", "First line\nSecond line")
 
 		outputFile := filepath.Join(tmpDir, "output.txt")
-		p, err := New(tmpDir, outputFile, "", true) // Enable line numbers
+		p, err := NewWithOptions(tmpDir, outputFile, "", SandwormOptions{PrintLineNumbers: true, FollowSymlinks: false})
 		if err != nil {
 			t.Fatalf("Failed to create processor: %v", err)
 		}

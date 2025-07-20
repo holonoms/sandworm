@@ -7,6 +7,7 @@ import (
 )
 
 // Options holds the command-line options shared across commands
+// If a value is nil, it will be resolved from config; otherwise, the CLI value overrides config.
 type Options struct {
 	// OutputFile specifies the path where the concatenated project file will be written.
 	// If empty, defaults are applied based on the command context.
@@ -30,6 +31,10 @@ type Options struct {
 	// ShowLineNumbers determines whether to show line numbers in the output.
 	// If nil, the value from config will be used. If set, it overrides the config.
 	ShowLineNumbers *bool
+
+	// FollowSymlinks determines whether to follow symbolic links when traversing directories.
+	// If nil, the value from config will be used. If set, it overrides the config.
+	FollowSymlinks *bool
 }
 
 // SetDefaults sets default values for options based on the command context
